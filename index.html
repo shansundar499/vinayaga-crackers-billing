@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Vinayaga Crackers and Events — Billing</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎆</text></svg>">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --bg:#0a0e1a; --bg2:#0e1424; --panel:#121a2e; --panel2:#161f38;
+  --line:#232e4d; --gold:#f2b705; --gold2:#ffd54a; --ember:#ff5b2e;
+  --text:#f2efe6; --dim:#8f9ab3; --green:#34d399; --amber:#fbbf24; --red:#f87171;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;}
+h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+.bg-panel{background:var(--panel);}
+.bg-panel2{background:var(--panel2);}
+.border-line{border-color:var(--line);}
+.text-gold{color:var(--gold);}
+.text-ember{color:var(--ember);}
+.text-dim{color:var(--dim);}
+.bg-gold{background:var(--gold);}
+.bg-ember{background:var(--ember);}
+
+/* Night sky + sparks hero background */
+.sky{
+  background:
+    radial-gradient(1.5px 1.5px at 20% 30%, #ffffff88 50%, transparent),
+    radial-gradient(1.5px 1.5px at 70% 20%, #ffffff66 50%, transparent),
+    radial-gradient(2px 2px at 85% 60%, #ffffff55 50%, transparent),
+    radial-gradient(1px 1px at 40% 70%, #ffffff77 50%, transparent),
+    radial-gradient(1.5px 1.5px at 55% 45%, #ffffff44 50%, transparent),
+    radial-gradient(1.5px 1.5px at 10% 80%, #ffffff55 50%, transparent),
+    linear-gradient(180deg,#080b15 0%, #0a0e1a 60%, #0c1120 100%);
+}
+.burst{position:absolute; border-radius:50%; pointer-events:none; opacity:.9;
+  background:radial-gradient(circle, var(--c) 0%, transparent 70%);
+  animation:pop 1.8s ease-out forwards;}
+@keyframes pop{0%{transform:scale(0); opacity:1;} 70%{opacity:.8;} 100%{transform:scale(1); opacity:0;}}
+
+/* Ticket-stub card for invoices */
+.stub{position:relative; border:1px dashed var(--line); border-radius:14px;}
+.stub::before,.stub::after{content:"";position:absolute; width:16px; height:16px; background:var(--bg); border-radius:50%; top:50%; transform:translateY(-50%);}
+.stub::before{left:-9px;}
+.stub::after{right:-9px;}
+
+.nav-item{display:flex; align-items:center; gap:.65rem; padding:.6rem .85rem; border-radius:10px; color:var(--dim); font-weight:500; font-size:.92rem; cursor:pointer; transition:.15s;}
+.nav-item:hover{background:var(--panel2); color:var(--text);}
+.nav-item.active{background:linear-gradient(90deg, #f2b70522, transparent); color:var(--gold); box-shadow:inset 3px 0 0 var(--gold);}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:16px;}
+.input{background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:.55rem .75rem; color:var(--text); width:100%; font-size:.9rem;}
+.input:focus{outline:none; border-color:var(--gold);}
+.btn{border-radius:10px; padding:.55rem 1rem; font-weight:600; font-size:.88rem; cursor:pointer; transition:.15s; border:1px solid transparent;}
+.btn-gold{background:var(--gold); color:#1a1300;}
+.btn-gold:hover{background:var(--gold2);}
+.btn-ghost{background:transparent; border-color:var(--line); color:var(--text);}
+.btn-ghost:hover{border-color:var(--gold); color:var(--gold);}
+.btn-danger{background:transparent; border-color:#f8717155; color:var(--red);}
+.btn-danger:hover{background:#f8717118;}
+.badge{padding:.2rem .6rem; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.02em;}
+.badge-paid{background:#34d39922; color:var(--green);}
+.badge-pending{background:#fbbf2422; color:var(--amber);}
+.badge-partial{background:#38bdf822; color:#38bdf8;}
+.badge-cancelled{background:#f8717122; color:var(--red);}
+table{width:100%; border-collapse:collapse; font-size:.88rem;}
+th{text-align:left; color:var(--dim); font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; padding:.6rem .75rem; border-bottom:1px solid var(--line);}
+td{padding:.7rem .75rem; border-bottom:1px solid var(--line);}
+tr:last-child td{border-bottom:none;}
+::-webkit-scrollbar{width:8px; height:8px;}
+::-webkit-scrollbar-thumb{background:var(--line); border-radius:8px;}
+.modal-backdrop{background:#000000aa; backdrop-filter:blur(2px);}
+.view{display:none;}
+.view.active{display:block;}
+@media(max-width:768px){
+  .sidebar{position:fixed; inset:0 auto 0 0; transform:translateX(-100%); transition:.25s; z-index:40; width:78vw; max-width:280px;}
+  .sidebar.open{transform:translateX(0);}
+  .overlay{position:fixed; inset:0; background:#000a; z-index:30; display:none;}
+  .overlay.open{display:block;}
+}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ===================== CONNECT (FIREBASE SETUP) VIEW ===================== -->
+<div id="connectView" class="sky min-h-screen flex items-center justify-center p-5 relative overflow-hidden">
+  <div class="card w-full max-w-lg p-8 relative z-10">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-2xl">🎆</span>
+      <h1 class="display text-xl font-bold">Vinayaga <span class="text-gold">Crackers</span> &amp; Events</h1>
+    </div>
+    <p class="text-dim text-sm mb-4">Connect your shared database once per device so every device stays in sync.</p>
+    <ol class="text-dim text-xs space-y-1.5 mb-4 list-decimal list-inside">
+      <li>Go to <span class="text-gold mono">console.firebase.google.com</span> → Add project (free)</li>
+      <li>Build → <b>Firestore Database</b> → Create database → start in production mode</li>
+      <li>Build → <b>Authentication</b> → Get started → enable the <b>Email/Password</b> sign-in method</li>
+      <li>⚙️ Project settings → scroll to "Your apps" → Add app → Web (&lt;/&gt;) → copy the <span class="mono">firebaseConfig</span> object shown</li>
+    </ol>
+    <form id="connectForm" class="space-y-3">
+      <textarea class="input mono" id="fbConfigInput" rows="7" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "messagingSenderId": "...", "appId": "..."}' required></textarea>
+      <p id="connectError" class="text-ember text-xs hidden">That doesn't look like a valid Firebase config — paste the whole object shown in your Firebase project settings.</p>
+      <button class="btn btn-gold w-full" type="submit">Connect</button>
+    </form>
+    <p class="text-dim text-[11px] mt-4 leading-relaxed">You can paste the whole code snippet Firebase gives you (imports and all) — it'll pick out the config automatically. Paste the exact same config on every device (phone, laptop, staff devices) to keep them in sync. The config itself isn't secret — real access control comes from sign-in plus the Firestore security rules you set up in the console.</p>
+  </div>
+</div>
+
+<!-- ===================== LOGIN VIEW ===================== -->
+<div id="loginView" class="sky min-h-screen flex items-center justify-center p-5 relative overflow-hidden hidden">
+  <div id="burstLayer" class="absolute inset-0"></div>
+  <div class="card w-full max-w-sm p-8 relative z-10">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-2xl">🎆</span>
+      <h1 class="display text-xl font-bold">Vinayaga <span class="text-gold">Crackers</span> &amp; Events</h1>
+    </div>
+    <p class="text-dim text-sm mb-6">Billing for your crackers shop</p>
+    <form id="loginForm" class="space-y-3">
+      <div>
+        <label class="text-xs text-dim">Email</label>
+        <input class="input mt-1" id="loginUser" type="email" placeholder="you@shop.com" required>
+      </div>
+      <div>
+        <label class="text-xs text-dim">Password</label>
+        <input class="input mt-1" id="loginPass" type="password" placeholder="••••••••" required>
+      </div>
+      <div id="signupNameField" class="hidden">
+        <label class="text-xs text-dim">Your name</label>
+        <input class="input mt-1" id="signupName" placeholder="Owner name">
+      </div>
+      <p id="loginError" class="text-ember text-xs hidden"></p>
+      <button class="btn btn-gold w-full mt-2" type="submit" id="loginSubmitBtn">Sign in</button>
+    </form>
+    <p class="text-dim text-xs mt-5 leading-relaxed">
+      First time on this database? <button type="button" id="toggleSignupBtn" class="text-gold underline">Create the admin account</button>
+    </p>
+  </div>
+</div>
+
+<!-- ===================== APP SHELL ===================== -->
+<div id="appShell" class="hidden min-h-screen md:flex">
+  <div id="overlay" class="overlay"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar bg-panel border-r border-line w-64 shrink-0 p-4 flex flex-col md:relative z-40">
+    <div class="flex items-center gap-2 px-2 mb-6">
+      <span class="text-2xl">🎆</span>
+      <div>
+        <h1 class="display text-base font-bold leading-none">Vinayaga <span class="text-gold">Crackers</span> &amp; Events</h1>
+        <p class="text-dim text-[11px] mt-0.5">Billing System</p>
+      </div>
+    </div>
+    <nav class="space-y-1 flex-1 overflow-y-auto">
+      <div class="nav-item" data-view="dashboard"><span>📊</span> Dashboard</div>
+      <div class="nav-item" data-view="invoices"><span>🧾</span> Invoices</div>
+      <div class="nav-item" data-view="customers"><span>👥</span> Customers</div>
+      <div class="nav-item" data-view="products"><span>📦</span> Products &amp; Services</div>
+      <div class="nav-item" data-view="reports"><span>📈</span> Reports</div>
+      <div class="nav-item" data-view="settings" data-admin-only><span>⚙️</span> Settings</div>
+    </nav>
+    <div class="border-t border-line pt-3 mt-3">
+      <div class="flex items-center justify-between px-2">
+        <div>
+          <p class="text-sm font-semibold" id="sidebarUserName">—</p>
+          <p class="text-dim text-[11px]" id="sidebarUserRole">—</p>
+        </div>
+        <button id="logoutBtn" class="btn-ghost btn !px-2 !py-1 text-xs">Log out</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex-1 min-w-0 flex flex-col">
+    <!-- Topbar -->
+    <header class="bg-panel border-b border-line px-4 py-3 flex items-center gap-3 sticky top-0 z-20">
+      <button id="menuBtn" class="md:hidden btn-ghost btn !px-2 !py-1.5">☰</button>
+      <div class="relative flex-1 max-w-md">
+        <input id="globalSearch" class="input pl-9" placeholder="Search customers, products, invoices…">
+        <span class="absolute left-3 top-2.5 text-dim">🔍</span>
+        <div id="searchResults" class="hidden absolute mt-1 w-full card p-2 max-h-80 overflow-y-auto z-30"></div>
+      </div>
+      <div class="ml-auto flex items-center gap-2">
+        <button id="newInvoiceBtn" class="btn btn-gold text-sm">+ New Invoice</button>
+      </div>
+    </header>
+
+    <main class="p-4 md:p-6 flex-1 overflow-x-hidden">
+
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="view">
+        <h2 class="display text-2xl font-bold mb-1">Dashboard</h2>
+        <p class="text-dim text-sm mb-5">Your shop, at a glance.</p>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div class="card p-4"><p class="text-dim text-xs">Total Sales</p><p class="display text-xl font-bold text-gold mt-1" id="statSales">₹0</p></div>
+          <div class="card p-4"><p class="text-dim text-xs">Outstanding</p><p class="display text-xl font-bold text-ember mt-1" id="statOutstanding">₹0</p></div>
+          <div class="card p-4"><p class="text-dim text-xs">Invoices</p><p class="display text-xl font-bold mt-1" id="statInvoices">0</p></div>
+          <div class="card p-4"><p class="text-dim text-xs">Customers</p><p class="display text-xl font-bold mt-1" id="statCustomers">0</p></div>
+        </div>
+        <div class="grid lg:grid-cols-3 gap-4">
+          <div class="card p-4 lg:col-span-2">
+            <h3 class="font-semibold mb-3 text-sm">Sales — last 14 days</h3>
+            <canvas id="salesChart" height="140"></canvas>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold mb-3 text-sm">Recent Invoices</h3>
+            <div id="recentInvoices" class="space-y-2 text-sm"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INVOICES -->
+      <section id="view-invoices" class="view">
+        <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+          <h2 class="display text-2xl font-bold">Invoices</h2>
+          <button class="btn btn-gold text-sm" onclick="Invoices.openForm()">+ New Invoice</button>
+        </div>
+        <p class="text-dim text-sm mb-5">Create, edit, cancel and view invoices.</p>
+        <div class="card p-3 mb-4 flex flex-wrap gap-2 items-center">
+          <input id="invFilterText" class="input max-w-xs" placeholder="Filter by customer or invoice #">
+          <select id="invFilterStatus" class="input max-w-[160px]">
+            <option value="">All statuses</option>
+            <option value="paid">Paid</option>
+            <option value="partial">Partial</option>
+            <option value="pending">Pending</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="card overflow-x-auto">
+          <table><thead><tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody id="invoiceTableBody"></tbody></table>
+        </div>
+      </section>
+
+      <!-- CUSTOMERS -->
+      <section id="view-customers" class="view">
+        <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+          <h2 class="display text-2xl font-bold">Customers</h2>
+          <button class="btn btn-gold text-sm" onclick="Customers.openForm()">+ Add Customer</button>
+        </div>
+        <p class="text-dim text-sm mb-5">Name, phone, email, address, GST details.</p>
+        <div class="card overflow-x-auto">
+          <table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>GSTIN</th><th>Outstanding</th><th></th></tr></thead>
+          <tbody id="customerTableBody"></tbody></table>
+        </div>
+      </section>
+
+      <!-- PRODUCTS -->
+      <section id="view-products" class="view">
+        <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+          <h2 class="display text-2xl font-bold">Products &amp; Services</h2>
+          <button class="btn btn-gold text-sm" onclick="Products.openForm()">+ Add Product</button>
+        </div>
+        <p class="text-dim text-sm mb-5">Name, SKU, price, tax, stock.</p>
+        <div class="card overflow-x-auto">
+          <table><thead><tr><th>Name</th><th>SKU</th><th>Price (incl. GST)</th><th>Tax %</th><th>Stock</th><th></th></tr></thead>
+          <tbody id="productTableBody"></tbody></table>
+        </div>
+      </section>
+
+      <!-- REPORTS -->
+      <section id="view-reports" class="view">
+        <h2 class="display text-2xl font-bold mb-1">Reports</h2>
+        <p class="text-dim text-sm mb-5">Daily/monthly sales, customer outstanding, tax.</p>
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <button class="btn btn-ghost text-sm" data-report="daily">Daily Sales</button>
+          <button class="btn btn-ghost text-sm" data-report="monthly">Monthly Sales</button>
+          <button class="btn btn-ghost text-sm" data-report="outstanding">Customer Outstanding</button>
+          <button class="btn btn-ghost text-sm" data-report="tax">Tax Report</button>
+        </div>
+        <div class="card p-4 overflow-x-auto" id="reportOutput"><p class="text-dim text-sm">Choose a report above.</p></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" class="view">
+        <h2 class="display text-2xl font-bold mb-1">Settings</h2>
+        <p class="text-dim text-sm mb-5">Business information, invoice numbering, tax settings, users.</p>
+        <div class="grid lg:grid-cols-2 gap-4">
+          <div class="card p-5">
+            <h3 class="font-semibold mb-3">Business Information</h3>
+            <form id="settingsForm" class="space-y-3">
+              <div><label class="text-xs text-dim">Business Name</label><input class="input mt-1" id="setBizName"></div>
+              <div><label class="text-xs text-dim">Address</label><textarea class="input mt-1" id="setAddress" rows="2"></textarea></div>
+              <div class="grid grid-cols-2 gap-2">
+                <div><label class="text-xs text-dim">Phone</label><input class="input mt-1" id="setPhone"></div>
+                <div><label class="text-xs text-dim">Email</label><input class="input mt-1" id="setEmail"></div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div><label class="text-xs text-dim">GSTIN</label><input class="input mt-1" id="setGstin"></div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div><label class="text-xs text-dim">State</label><input class="input mt-1" id="setStateName"></div>
+                  <div><label class="text-xs text-dim">Code</label><input class="input mt-1" id="setStateCode"></div>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div><label class="text-xs text-dim">Invoice Prefix</label><input class="input mt-1" id="setPrefix"></div>
+                <div><label class="text-xs text-dim">Next Invoice #</label><input class="input mt-1" id="setNextNum" type="number"></div>
+              </div>
+              <div><label class="text-xs text-dim">Default GST %</label><input class="input mt-1" id="setDefaultTax" type="number" step="0.01"></div>
+              <button class="btn btn-gold text-sm" type="submit">Save Settings</button>
+              <span id="settingsSaved" class="text-green text-xs ml-2 hidden">Saved ✓</span>
+            </form>
+          </div>
+          <div class="space-y-4">
+            <div class="card p-5">
+              <h3 class="font-semibold mb-3">Bank Details <span class="text-dim text-xs font-normal">(printed on invoice)</span></h3>
+              <form id="bankForm" class="space-y-3">
+                <div><label class="text-xs text-dim">Bank Name</label><input class="input mt-1" id="setBankName"></div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div><label class="text-xs text-dim">A/c No.</label><input class="input mt-1" id="setBankAccount"></div>
+                  <div><label class="text-xs text-dim">Branch &amp; IFSC</label><input class="input mt-1" id="setBankBranchIfsc"></div>
+                </div>
+                <div><label class="text-xs text-dim">Declaration text</label><textarea class="input mt-1" id="setDeclaration" rows="2"></textarea></div>
+                <button class="btn btn-gold text-sm" type="submit">Save Bank Details</button>
+                <span id="bankSaved" class="text-green text-xs ml-2 hidden">Saved ✓</span>
+              </form>
+            </div>
+            <div class="card p-5">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold">Users &amp; Permissions</h3>
+                <button class="btn btn-ghost text-xs" onclick="Users.openForm()">+ Add User</button>
+              </div>
+              <div class="overflow-x-auto"><table><thead><tr><th>User</th><th>Role</th><th></th></tr></thead>
+              <tbody id="userTableBody"></tbody></table></div>
+              <p class="text-dim text-xs mt-3 leading-relaxed">Admins can manage settings, users, and all data. Staff can manage customers, products, invoices and payments, but can't change settings or users.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ===================== MODAL ===================== -->
+<div id="modalBackdrop" class="modal-backdrop hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div id="modalBox" class="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 md:p-6"></div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-panel2 border border-line text-sm px-4 py-2.5 rounded-xl z-[60] shadow-lg"></div>
+
+<script>
+/* ============================================================
+   FIREBASE CONNECTION + CLOUD DATA CACHE
+   ============================================================ */
+// Baked-in project config so anyone opening this hosted file goes straight to the
+// login screen — no per-device config paste-in needed. Firebase web config values
+// (apiKey etc.) are not secrets; real access control comes from Firestore security
+// rules + sign-in, which are set up separately in the Firebase console.
+const EMBEDDED_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB_3xYxIOQQe59CW-4zU834e4M3lbYtKlg",
+  authDomain: "vinayaga-crackers-and-ev-a2f59.firebaseapp.com",
+  projectId: "vinayaga-crackers-and-ev-a2f59",
+  storageBucket: "vinayaga-crackers-and-ev-a2f59.firebasestorage.app",
+  messagingSenderId: "862309674720",
+  appId: "1:862309674720:web:50feec9b93b06833d62a85"
+};
+
+let db, auth, currentUser = null, currentProfile = null, currentView = 'dashboard';
+let listenerUnsubs = [];
+const Cache = { customers:[], products:[], invoices:[], settings:{}, profiles:[] };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+function showConnect(){
+  document.getElementById('connectView').classList.remove('hidden');
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appShell').classList.add('hidden');
+}
+function showLogin(){
+  document.getElementById('connectView').classList.add('hidden');
+  document.getElementById('loginView').classList.remove('hidden');
+  document.getElementById('appShell').classList.add('hidden');
+}
+function showLoginError(msg){
+  showLogin();
+  const e = document.getElementById('loginError');
+  e.textContent = msg; e.classList.remove('hidden');
+}
+
+function initFirebase(config){
+  firebase.initializeApp(config);
+  db = firebase.firestore();
+  auth = firebase.auth();
+  auth.onAuthStateChanged(async user => {
+    if(!user){ currentUser = null; currentProfile = null; listenerUnsubs.forEach(u=>u()); listenerUnsubs = []; showLogin(); return; }
+    currentUser = user;
+    try{
+      const snap = await db.collection('profiles').doc(user.uid).get();
+      if(!snap.exists){
+        // No profile yet. If this database has no profiles at all, this must be the very
+        // first login (e.g. account creation succeeded but the profile write got blocked
+        // by security rules before) — self-heal by promoting this account to admin instead
+        // of leaving it stuck.
+        const anyProfile = await db.collection('profiles').limit(1).get();
+        if(anyProfile.empty){
+          const name = user.email.split('@')[0];
+          const profile = {email:user.email, name, role:'admin'};
+          await db.collection('profiles').doc(user.uid).set(profile);
+          await seedDefaultsIfEmpty();
+          currentProfile = {id:user.uid, ...profile};
+          startListeners();
+          bootApp();
+          return;
+        }
+        await auth.signOut();
+        showLoginError("This account isn't set up yet — ask an admin to add you under Settings → Users.");
+        return;
+      }
+      currentProfile = {id:user.uid, ...snap.data()};
+      startListeners();
+      bootApp();
+    }catch(err){
+      await auth.signOut();
+      showLoginError(friendlyAuthError(err));
+    }
+  });
+}
+
+// One-time defaults when the very first admin account is created on a fresh database
+async function seedDefaultsIfEmpty(){
+  await db.collection('settings').doc('main').set({
+    bizName:'Vinayaga Crackers and Events', address:'', phone:'', email:'', gstin:'',
+    stateName:'', stateCode:'', prefix:'INV-', nextNum:1001, defaultTax:18,
+    bankName:'', bankAccount:'', bankBranchIfsc:'',
+    declaration:'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.'
+  }, {merge:true});
+  const existing = await db.collection('products').limit(1).get();
+  if(existing.empty){
+    const batch = db.batch();
+    [
+      {name:'Flower Pots (Box of 10)', sku:'FP-010', hsn:'36041000', unit:'box', price:250, tax:18, stock:120},
+      {name:'Sparklers 7-inch (Pack of 10)', sku:'SP-710', hsn:'36041000', unit:'pkt', price:60, tax:18, stock:300},
+      {name:'Aerial Shots 12-shot', sku:'AS-012', hsn:'36041000', unit:'pcs', price:900, tax:18, stock:40},
+    ].forEach(p=> batch.set(db.collection('products').doc(), p));
+    await batch.commit();
+  }
+}
+
+function startListeners(){
+  listenerUnsubs.forEach(u=>u());
+  listenerUnsubs = [];
+  listenerUnsubs.push(db.collection('customers').onSnapshot(snap=>{
+    Cache.customers = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(currentView==='customers') Customers.renderTable();
+    if(currentView==='dashboard') Dashboard.render();
+  }, err=>toast('Sync error: '+err.message)));
+  listenerUnsubs.push(db.collection('products').onSnapshot(snap=>{
+    Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(currentView==='products') Products.renderTable();
+  }, err=>toast('Sync error: '+err.message)));
+  listenerUnsubs.push(db.collection('invoices').onSnapshot(snap=>{
+    Cache.invoices = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(currentView==='invoices') Invoices.renderTable();
+    if(currentView==='dashboard') Dashboard.render();
+    if(currentView==='customers') Customers.renderTable();
+  }, err=>toast('Sync error: '+err.message)));
+  listenerUnsubs.push(db.collection('settings').doc('main').onSnapshot(doc=>{
+    Cache.settings = doc.exists ? doc.data() : {};
+    if(currentView==='settings') Settings.render();
+  }, err=>toast('Sync error: '+err.message)));
+  listenerUnsubs.push(db.collection('profiles').onSnapshot(snap=>{
+    Cache.profiles = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(currentView==='settings') Users.renderTable();
+  }, err=>toast('Sync error: '+err.message)));
+}
+
+// Accepts strict JSON, a bare {...} object with unquoted keys, or the whole code
+// snippet copied straight from the Firebase console (imports, initializeApp call, etc.) —
+// pulls out just the config object in each case using brace matching.
+function parseFirebaseConfigInput(raw){
+  const text = raw.trim();
+  try{ return JSON.parse(text); }catch(e){}
+  let start = text.search(/firebaseConfig\s*=\s*\{/);
+  start = start === -1 ? text.indexOf('{') : text.indexOf('{', start);
+  if(start !== -1){
+    let depth = 0, end = -1;
+    for(let i = start; i < text.length; i++){
+      if(text[i] === '{') depth++;
+      else if(text[i] === '}'){ depth--; if(depth === 0){ end = i; break; } }
+    }
+    if(end !== -1){
+      const objText = text.slice(start, end+1);
+      try{ return Function('"use strict"; return (' + objText + ')')(); }catch(e){}
+    }
+  }
+  throw new Error('Could not read a Firebase config from that text');
+}
+
+document.getElementById('connectForm').addEventListener('submit', e=>{
+  e.preventDefault();
+  const errEl = document.getElementById('connectError');
+  errEl.classList.add('hidden');
+  try{
+    const cfg = parseFirebaseConfigInput(document.getElementById('fbConfigInput').value);
+    if(!cfg.apiKey || !cfg.projectId) throw new Error('missing fields');
+    localStorage.setItem('crackers_fb_config', JSON.stringify(cfg));
+    showLogin();
+    initFirebase(cfg);
+  }catch(err){
+    errEl.classList.remove('hidden');
+  }
+});
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const fmt = n => '₹' + (Number(n)||0).toLocaleString('en-IN', {maximumFractionDigits:2});
+const todayISO = () => new Date().toISOString().slice(0,10);
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.add('hidden'), 2200);
+}
+function openModal(html){
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+}
+function closeModal(){ document.getElementById('modalBackdrop').classList.add('hidden'); }
+document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') closeModal(); });
+
+/* ============================================================
+   AUTH
+   ============================================================ */
+const Auth = {
+  isAdmin(){ return currentProfile && currentProfile.role==='admin'; },
+  logout(){ auth.signOut(); }
+};
+
+let signupMode = false;
+document.getElementById('toggleSignupBtn').addEventListener('click', ()=>{
+  signupMode = !signupMode;
+  document.getElementById('signupNameField').classList.toggle('hidden', !signupMode);
+  document.getElementById('loginSubmitBtn').textContent = signupMode ? 'Create admin account' : 'Sign in';
+  document.getElementById('toggleSignupBtn').textContent = signupMode ? 'Back to sign in' : 'Create the admin account';
+});
+
+function friendlyAuthError(err){
+  switch(err.code){
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return "Incorrect email or password. First time on this database? Use \"Create the admin account\" below instead of signing in.";
+    case 'auth/email-already-in-use':
+      return 'An account with that email already exists on this database — try signing in instead.';
+    case 'auth/weak-password':
+      return 'Password should be at least 6 characters.';
+    case 'auth/invalid-email':
+      return "That doesn't look like a valid email address.";
+    case 'auth/operation-not-allowed':
+      return "Email/Password sign-in isn't enabled for this project yet — in the Firebase console go to Authentication → Sign-in method and enable it.";
+    case 'auth/too-many-requests':
+      return 'Too many attempts — wait a minute and try again.';
+    case 'auth/network-request-failed':
+      return 'Network error — check your connection and try again.';
+    case 'permission-denied':
+      return "Firestore is blocking this — go to your Firebase console → Firestore Database → Rules, and set a rule allowing signed-in access (allow read, write: if request.auth != null;), then Publish and try again.";
+    default:
+      return (err.message || 'Something went wrong').replace('Firebase: ','');
+  }
+}
+
+document.getElementById('loginForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const email = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.classList.add('hidden');
+  try{
+    if(signupMode){
+      const name = document.getElementById('signupName').value.trim() || email.split('@')[0];
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
+      await db.collection('profiles').doc(cred.user.uid).set({email, name, role:'admin'});
+      await seedDefaultsIfEmpty();
+    } else {
+      await auth.signInWithEmailAndPassword(email, pass);
+    }
+  }catch(err){
+    errEl.textContent = friendlyAuthError(err);
+    errEl.classList.remove('hidden');
+  }
+});
+document.getElementById('logoutBtn').addEventListener('click', ()=>Auth.logout());
+
+// Little firework burst animation on the login screen
+(function fireworksLoop(){
+  const layer = document.getElementById('burstLayer');
+  const colors = ['#f2b705','#ff5b2e','#38bdf8','#34d399','#ffd54a'];
+  setInterval(()=>{
+    if(!layer || document.getElementById('loginView').classList.contains('hidden')) return;
+    const b = document.createElement('div');
+    const size = 60 + Math.random()*90;
+    b.className='burst';
+    b.style.setProperty('--c', colors[Math.floor(Math.random()*colors.length)]);
+    b.style.width = b.style.height = size+'px';
+    b.style.left = (Math.random()*90)+'%';
+    b.style.top = (Math.random()*80)+'%';
+    layer.appendChild(b);
+    setTimeout(()=>b.remove(), 1900);
+  }, 700);
+})();
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+function showView(name){
+  currentView = name;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
+  location.hash = name;
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+  if(name==='dashboard') Dashboard.render();
+  if(name==='invoices') Invoices.renderTable();
+  if(name==='customers') Customers.renderTable();
+  if(name==='products') Products.renderTable();
+  if(name==='settings') Settings.render();
+}
+document.querySelectorAll('.nav-item').forEach(n=>n.addEventListener('click', ()=>showView(n.dataset.view)));
+document.getElementById('menuBtn').addEventListener('click', ()=>{
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+});
+document.getElementById('overlay').addEventListener('click', ()=>{
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+});
+document.getElementById('newInvoiceBtn').addEventListener('click', ()=>Invoices.openForm());
+
+/* ============================================================
+   CUSTOMERS
+   ============================================================ */
+const Customers = {
+  list(){ return Cache.customers; },
+  outstandingFor(id){
+    return Invoices.list().filter(i=>i.customerId===id && i.status!=='cancelled')
+      .reduce((s,i)=>s + (i.total - (i.paidAmount||0)), 0);
+  },
+  outstandingExcluding(id, excludeInvoiceId){
+    return Invoices.list().filter(i=>i.customerId===id && i.status!=='cancelled' && i.id!==excludeInvoiceId)
+      .reduce((s,i)=>s + (i.total - (i.paidAmount||0)), 0);
+  },
+  openForm(id){
+    const c = id ? this.list().find(x=>x.id===id) : {name:'',phone:'',email:'',address:'',gstin:'',stateName:'',stateCode:'',shipTo:''};
+    openModal(`
+      <h3 class="font-semibold text-lg mb-4">${id?'Edit':'Add'} Customer</h3>
+      <form id="custForm" class="space-y-3">
+        <div><label class="text-xs text-dim">Name *</label><input class="input mt-1" id="cName" value="${c.name||''}" required></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs text-dim">Phone</label><input class="input mt-1" id="cPhone" value="${c.phone||''}"></div>
+          <div><label class="text-xs text-dim">Email</label><input class="input mt-1" id="cEmail" value="${c.email||''}"></div>
+        </div>
+        <div><label class="text-xs text-dim">Billing Address</label><textarea class="input mt-1" id="cAddress" rows="2">${c.address||''}</textarea></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs text-dim">GSTIN</label><input class="input mt-1" id="cGstin" value="${c.gstin||''}"></div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-xs text-dim">State</label><input class="input mt-1" id="cStateName" value="${c.stateName||''}"></div>
+            <div><label class="text-xs text-dim">Code</label><input class="input mt-1" id="cStateCode" value="${c.stateCode||''}"></div>
+          </div>
+        </div>
+        <div><label class="text-xs text-dim">Ship To (leave blank if same as billing address)</label><textarea class="input mt-1" id="cShipTo" rows="2">${c.shipTo||''}</textarea></div>
+        <div class="flex gap-2 pt-2">
+          <button class="btn btn-gold" type="submit">Save</button>
+          <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+        </div>
+      </form>`);
+    document.getElementById('custForm').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const data = {name:cName.value.trim(), phone:cPhone.value.trim(), email:cEmail.value.trim(),
+        address:cAddress.value.trim(), gstin:cGstin.value.trim(), stateName:cStateName.value.trim(),
+        stateCode:cStateCode.value.trim(), shipTo:cShipTo.value.trim()};
+      try{
+        if(id){ await db.collection('customers').doc(id).update(data); }
+        else { await db.collection('customers').add(data); }
+        closeModal();
+        toast('Customer saved');
+      }catch(err){ toast('Error: '+err.message); }
+    });
+  },
+  remove(id){
+    if(!confirm('Delete this customer?')) return;
+    db.collection('customers').doc(id).delete().catch(err=>toast('Error: '+err.message));
+  },
+  renderTable(){
+    const body = document.getElementById('customerTableBody');
+    const list = this.list();
+    body.innerHTML = list.length ? list.map(c=>`
+      <tr>
+        <td class="font-medium">${c.name}</td>
+        <td class="text-dim">${c.phone||'—'}</td>
+        <td class="text-dim">${c.email||'—'}</td>
+        <td class="text-dim mono text-xs">${c.gstin||'—'}</td>
+        <td class="${this.outstandingFor(c.id)>0?'text-ember':'text-dim'}">${fmt(this.outstandingFor(c.id))}</td>
+        <td class="text-right whitespace-nowrap">
+          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Customers.openForm('${c.id}')">Edit</button>
+          <button class="btn-danger btn !px-2 !py-1 text-xs" onclick="Customers.remove('${c.id}')">Delete</button>
+        </td>
+      </tr>`).join('') : `<tr><td colspan="6" class="text-dim text-center py-8">No customers yet. Add your first one.</td></tr>`;
+  }
+};
+
+/* ============================================================
+   PRODUCTS
+   ============================================================ */
+const Products = {
+  list(){ return Cache.products; },
+  openForm(id){
+    const p = id ? this.list().find(x=>x.id===id) : {name:'',sku:'',hsn:'',unit:'pcs',price:'',tax:Cache.settings.defaultTax||18,stock:0};
+    openModal(`
+      <h3 class="font-semibold text-lg mb-4">${id?'Edit':'Add'} Product / Service</h3>
+      <form id="prodForm" class="space-y-3">
+        <div><label class="text-xs text-dim">Name *</label><input class="input mt-1" id="pName" value="${p.name||''}" required></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs text-dim">SKU</label><input class="input mt-1" id="pSku" value="${p.sku||''}"></div>
+          <div><label class="text-xs text-dim">HSN/SAC</label><input class="input mt-1" id="pHsn" value="${p.hsn||''}" placeholder="e.g. 36041000"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs text-dim">Unit</label><input class="input mt-1" id="pUnit" value="${p.unit||'pcs'}" placeholder="pcs / kgs / box"></div>
+          <div><label class="text-xs text-dim">Stock</label><input class="input mt-1" id="pStock" type="number" value="${p.stock??0}"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs text-dim">Price (₹, incl. GST) *</label><input class="input mt-1" id="pPrice" type="number" step="0.01" value="${p.price||''}" required></div>
+          <div><label class="text-xs text-dim">GST %</label><input class="input mt-1" id="pTax" type="number" step="0.01" value="${p.tax??18}"></div>
+        </div>
+        <p class="text-dim text-[11px]">Enter the selling price you actually charge — GST is already included in it. The invoice backs out the taxable value and splits GST into CGST + SGST automatically (standard intra-state format).</p>
+        <div class="flex gap-2 pt-2">
+          <button class="btn btn-gold" type="submit">Save</button>
+          <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+        </div>
+      </form>`);
+    document.getElementById('prodForm').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const data = {name:pName.value.trim(), sku:pSku.value.trim(), hsn:pHsn.value.trim(), unit:pUnit.value.trim()||'pcs',
+        price:parseFloat(pPrice.value)||0, tax:parseFloat(pTax.value)||0, stock:parseInt(pStock.value)||0};
+      try{
+        if(id){ await db.collection('products').doc(id).update(data); }
+        else { await db.collection('products').add(data); }
+        closeModal();
+        toast('Product saved');
+      }catch(err){ toast('Error: '+err.message); }
+    });
+  },
+  remove(id){
+    if(!confirm('Delete this product?')) return;
+    db.collection('products').doc(id).delete().catch(err=>toast('Error: '+err.message));
+  },
+  renderTable(){
+    const body = document.getElementById('productTableBody');
+    const list = this.list();
+    body.innerHTML = list.length ? list.map(p=>`
+      <tr>
+        <td class="font-medium">${p.name}</td>
+        <td class="text-dim mono text-xs">${p.sku||'—'}<br><span class="text-[10px]">HSN ${p.hsn||'—'}</span></td>
+        <td>${fmt(p.price)}<span class="text-dim text-[10px]"> /${p.unit||'pcs'}</span></td>
+        <td class="text-dim">${p.tax}%</td>
+        <td class="${p.stock<=5?'text-ember':''}">${p.stock}</td>
+        <td class="text-right whitespace-nowrap">
+          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Products.openForm('${p.id}')">Edit</button>
+          <button class="btn-danger btn !px-2 !py-1 text-xs" onclick="Products.remove('${p.id}')">Delete</button>
+        </td>
+      </tr>`).join('') : `<tr><td colspan="6" class="text-dim text-center py-8">No products yet. Add your first one.</td></tr>`;
+  }
+};
+
+/* ============================================================
+   INDIAN CURRENCY-IN-WORDS
+   ============================================================ */
+function numToWordsIndian(n){
+  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
+    'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function two(n){ if(n<20) return ones[n]; return tens[Math.floor(n/10)] + (n%10?' '+ones[n%10]:''); }
+  function three(n){ if(n<100) return two(n); return ones[Math.floor(n/100)]+' Hundred'+(n%100?' '+two(n%100):''); }
+  if(n===0) return 'Zero';
+  let str = '';
+  const crore = Math.floor(n/10000000); n%=10000000;
+  const lakh = Math.floor(n/100000); n%=100000;
+  const thousand = Math.floor(n/1000); n%=1000;
+  const hundred = n;
+  if(crore) str += three(crore)+' Crore ';
+  if(lakh) str += three(lakh)+' Lakh ';
+  if(thousand) str += three(thousand)+' Thousand ';
+  if(hundred) str += three(hundred)+' ';
+  return str.trim();
+}
+function amountInWords(amount){
+  const rupees = Math.floor(amount);
+  const paise = Math.round((amount - rupees)*100);
+  let out = 'INR ' + (rupees ? numToWordsIndian(rupees) : 'Zero') + ' Only';
+  if(paise) out = 'INR ' + numToWordsIndian(rupees) + ' and ' + numToWordsIndian(paise) + ' Paise Only';
+  return out;
+}
+
+/* ============================================================
+   INVOICES + PAYMENTS
+   ============================================================ */
+const Invoices = {
+  list(){ return Cache.invoices; },
+
+  openForm(id){
+    const inv = id ? this.list().find(x=>x.id===id) : null;
+    const customers = Customers.list();
+    const products = Products.list();
+    const items = inv ? JSON.parse(JSON.stringify(inv.items)) : [];
+    const settings = Cache.settings;
+    const ref = inv ? (inv.ref||{}) : {};
+
+    const rowHtml = (it, idx) => `
+      <div class="grid grid-cols-12 gap-2 items-center item-row" data-idx="${idx}">
+        <select class="input col-span-5 item-product">
+          <option value="">Select product…</option>
+          ${products.map(p=>`<option value="${p.id}" ${it.productId===p.id?'selected':''}>${p.name}</option>`).join('')}
+        </select>
+        <input class="input col-span-2 item-qty" type="number" min="1" value="${it.qty||1}">
+        <input class="input col-span-2 item-price" type="number" step="0.01" value="${it.price??''}" placeholder="Price (incl. GST)">
+        <input class="input col-span-2 item-tax" type="number" step="0.01" value="${it.tax??''}" placeholder="GST%">
+        <button type="button" class="col-span-1 text-ember text-lg" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
+      </div>`;
+
+    openModal(`
+      <h3 class="font-semibold text-lg mb-4">${id?'Edit':'New'} Invoice</h3>
+      <form id="invForm">
+        <div class="grid md:grid-cols-3 gap-2 mb-3">
+          <div><label class="text-xs text-dim">Invoice #</label><input class="input mt-1 mono" id="iNumber" value="${inv?inv.invoiceNo:(settings.prefix||'INV-')+ (settings.nextNum||1001)}" ${inv?'readonly':''}></div>
+          <div><label class="text-xs text-dim">Date</label><input class="input mt-1" id="iDate" type="date" value="${inv?inv.date:todayISO()}"></div>
+          <div><label class="text-xs text-dim">Customer *</label>
+            <div class="flex gap-1 mt-1">
+              <select class="input" id="iCustomer" required>
+                <option value="">Select…</option>
+                ${customers.map(c=>`<option value="${c.id}" ${inv&&inv.customerId===c.id?'selected':''}>${c.name}</option>`).join('')}
+              </select>
+              <button type="button" class="btn-ghost btn !px-2 !py-1 text-xs whitespace-nowrap" onclick="Invoices.toggleQuickCustomer()">+ New</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="quickCustomerBox" class="hidden card p-3 mb-3 space-y-2">
+          <p class="text-xs text-dim">New customer — fills in and selects automatically, no need to visit the Customers page.</p>
+          <div class="grid md:grid-cols-2 gap-2">
+            <input class="input" id="qcName" placeholder="Name *">
+            <input class="input" id="qcPhone" placeholder="Phone">
+            <input class="input" id="qcGstin" placeholder="GSTIN (optional)">
+            <input class="input" id="qcEmail" placeholder="Email (optional)">
+          </div>
+          <textarea class="input" id="qcAddress" rows="2" placeholder="Address"></textarea>
+          <div class="flex gap-2">
+            <button type="button" class="btn btn-gold text-xs" onclick="Invoices.saveQuickCustomer()">Add &amp; Select</button>
+            <button type="button" class="btn-ghost btn text-xs" onclick="Invoices.toggleQuickCustomer()">Cancel</button>
+          </div>
+        </div>
+
+        <details class="mb-3 card p-3">
+          <summary class="text-xs text-dim cursor-pointer select-none">Transport / reference details (optional — printed on invoice)</summary>
+          <div class="grid md:grid-cols-3 gap-2 mt-3">
+            <div><label class="text-xs text-dim">Delivery Note</label><input class="input mt-1" id="iDeliveryNote" value="${ref.deliveryNote||''}"></div>
+            <div><label class="text-xs text-dim">Mode/Terms of Payment</label><input class="input mt-1" id="iPaymentMode" value="${ref.paymentMode||''}"></div>
+            <div><label class="text-xs text-dim">Reference No. &amp; Date</label><input class="input mt-1" id="iRefNo" value="${ref.refNo||''}"></div>
+            <div><label class="text-xs text-dim">Buyer's Order No.</label><input class="input mt-1" id="iBuyersOrderNo" value="${ref.buyersOrderNo||''}"></div>
+            <div><label class="text-xs text-dim">Dated</label><input class="input mt-1" id="iBuyersOrderDate" value="${ref.buyersOrderDate||''}"></div>
+            <div><label class="text-xs text-dim">Dispatch Doc No.</label><input class="input mt-1" id="iDispatchDocNo" value="${ref.dispatchDocNo||''}"></div>
+            <div><label class="text-xs text-dim">Dispatched Through</label><input class="input mt-1" id="iDispatchedThrough" value="${ref.dispatchedThrough||''}"></div>
+            <div><label class="text-xs text-dim">Destination</label><input class="input mt-1" id="iDestination" value="${ref.destination||''}"></div>
+            <div><label class="text-xs text-dim">Terms of Delivery</label><input class="input mt-1" id="iTermsOfDelivery" value="${ref.termsOfDelivery||''}"></div>
+          </div>
+        </details>
+
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs text-dim">Items</label>
+          <button type="button" class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.addItemRow()">+ Add item</button>
+        </div>
+        <div id="itemRows" class="space-y-2 mb-2">
+          ${items.length ? items.map(rowHtml).join('') : rowHtml({qty:1}, 0)}
+        </div>
+        <div class="text-right text-xs text-dim mb-4">Qty · Price (incl. GST) · GST%</div>
+
+        <div class="flex justify-end">
+          <div class="w-full max-w-xs space-y-1 text-sm">
+            <div class="flex justify-between"><span class="text-dim">Taxable Value</span><span id="calcSubtotal">₹0</span></div>
+            <div class="flex justify-between"><span class="text-dim">GST (CGST+SGST, incl. in price)</span><span id="calcTax">₹0</span></div>
+            <div class="flex justify-between font-bold text-gold text-base"><span>Total</span><span id="calcTotal">₹0</span></div>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-2 mt-4">
+          <div><label class="text-xs text-dim">Status</label>
+            <select class="input mt-1" id="iStatus">
+              <option value="pending" ${inv&&inv.status==='pending'?'selected':''}>Pending</option>
+              <option value="partial" ${inv&&inv.status==='partial'?'selected':''}>Partial</option>
+              <option value="paid" ${inv&&inv.status==='paid'?'selected':''}>Paid</option>
+              ${inv&&inv.status==='cancelled'?'<option value="cancelled" selected>Cancelled</option>':''}
+            </select>
+          </div>
+          <div><label class="text-xs text-dim">Amount Paid (₹)</label><input class="input mt-1" id="iPaid" type="number" step="0.01" value="${inv?inv.paidAmount:0}"></div>
+          <div><label class="text-xs text-dim">Notes / Remarks</label><input class="input mt-1" id="iNotes" value="${inv&&inv.notes?inv.notes:''}"></div>
+        </div>
+
+        <div class="flex gap-2 pt-4 flex-wrap">
+          <button class="btn btn-gold" type="submit">Save Invoice</button>
+          ${inv?`<button class="btn btn-ghost" type="button" onclick="Invoices.printPDF('${inv.id}')">Print</button>`:''}
+          ${inv?`<button class="btn btn-ghost" type="button" onclick="Invoices.downloadPDF('${inv.id}')">Download PDF</button>`:''}
+          ${inv&&inv.status!=='cancelled'?`<button class="btn btn-danger" type="button" onclick="Invoices.cancel('${inv.id}')">Cancel Invoice</button>`:''}
+          <button class="btn btn-ghost" type="button" onclick="closeModal()">Close</button>
+        </div>
+      </form>`);
+
+    document.getElementById('itemRows').addEventListener('input', Invoices.recalc);
+    document.getElementById('itemRows').addEventListener('change', e=>{
+      if(e.target.classList.contains('item-product')){
+        const row = e.target.closest('.item-row');
+        const prod = products.find(p=>p.id===e.target.value);
+        if(prod){ row.querySelector('.item-price').value = prod.price; row.querySelector('.item-tax').value = prod.tax; }
+      }
+      Invoices.recalc();
+    });
+    Invoices.recalc();
+
+    document.getElementById('invForm').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const rows = [...document.querySelectorAll('.item-row')];
+      const items = rows.map(r=>{
+        const pid = r.querySelector('.item-product').value;
+        const prod = products.find(p=>p.id===pid);
+        return {
+          productId: pid, name: prod?prod.name:'Item', hsn: prod?prod.hsn:'', unit: prod?prod.unit:'pcs',
+          qty: parseFloat(r.querySelector('.item-qty').value)||0,
+          price: parseFloat(r.querySelector('.item-price').value)||0,
+          tax: parseFloat(r.querySelector('.item-tax').value)||0
+        };
+      }).filter(it=>it.productId);
+      if(!items.length){ toast('Add at least one item'); return; }
+      const {subtotal, taxTotal, total, roundOff} = Invoices.computeTotals(items);
+      const data = {
+        invoiceNo: iNumber.value, date: iDate.value, customerId: iCustomer.value,
+        items, subtotal, taxTotal, total, roundOff,
+        status: iStatus.value, paidAmount: parseFloat(iPaid.value)||0, notes: iNotes.value,
+        ref: {
+          deliveryNote: iDeliveryNote.value, paymentMode: iPaymentMode.value, refNo: iRefNo.value,
+          buyersOrderNo: iBuyersOrderNo.value, buyersOrderDate: iBuyersOrderDate.value,
+          dispatchDocNo: iDispatchDocNo.value, dispatchedThrough: iDispatchedThrough.value,
+          destination: iDestination.value, termsOfDelivery: iTermsOfDelivery.value
+        }
+      };
+      try{
+        if(inv){
+          await db.collection('invoices').doc(inv.id).update(data);
+        } else {
+          await db.collection('invoices').add(data);
+          await db.collection('settings').doc('main').update({nextNum: firebase.firestore.FieldValue.increment(1)});
+        }
+        closeModal();
+        toast('Invoice saved');
+      }catch(err){ toast('Error: '+err.message); }
+    });
+  },
+
+  toggleQuickCustomer(){
+    const box = document.getElementById('quickCustomerBox');
+    box.classList.toggle('hidden');
+    if(!box.classList.contains('hidden')) document.getElementById('qcName').focus();
+  },
+
+  async saveQuickCustomer(){
+    const name = document.getElementById('qcName').value.trim();
+    if(!name){ toast('Enter a customer name'); return; }
+    const data = {
+      name, phone: qcPhone.value.trim(), email: qcEmail.value.trim(),
+      address: qcAddress.value.trim(), gstin: qcGstin.value.trim(), stateName:'', stateCode:'', shipTo:''
+    };
+    try{
+      const ref = await db.collection('customers').add(data);
+      // refresh the dropdown and select the new customer
+      const sel = document.getElementById('iCustomer');
+      const opt = document.createElement('option');
+      opt.value = ref.id; opt.textContent = data.name;
+      sel.appendChild(opt);
+      sel.value = ref.id;
+      document.getElementById('quickCustomerBox').classList.add('hidden');
+      ['qcName','qcPhone','qcEmail','qcGstin','qcAddress'].forEach(id=>document.getElementById(id).value='');
+      toast('Customer added');
+    }catch(err){ toast('Error: '+err.message); }
+  },
+
+  addItemRow(){
+    const products = Products.list();
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="grid grid-cols-12 gap-2 items-center item-row">
+      <select class="input col-span-5 item-product"><option value="">Select product…</option>
+        ${products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+      <input class="input col-span-2 item-qty" type="number" min="1" value="1">
+      <input class="input col-span-2 item-price" type="number" step="0.01" placeholder="Price (incl. GST)">
+      <input class="input col-span-2 item-tax" type="number" step="0.01" placeholder="GST%">
+      <button type="button" class="col-span-1 text-ember text-lg" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
+    </div>`;
+    document.getElementById('itemRows').appendChild(wrap.firstElementChild);
+  },
+
+  // Product prices are entered GST-inclusive, so each line's taxable value and tax
+  // are backed out of the inclusive amount rather than added on top of it.
+  computeTotals(items){
+    let subtotal=0, taxTotal=0;
+    items.forEach(it=>{
+      const lineIncl = it.qty*it.price;
+      const lineExcl = lineIncl / (1 + (it.tax/100));
+      subtotal += lineExcl;
+      taxTotal += (lineIncl - lineExcl);
+    });
+    const rawTotal = subtotal + taxTotal;
+    const total = Math.round(rawTotal);
+    const roundOff = +(total - rawTotal).toFixed(2);
+    return {subtotal:+subtotal.toFixed(2), taxTotal:+taxTotal.toFixed(2), roundOff, total};
+  },
+
+  recalc(){
+    const rows = [...document.querySelectorAll('.item-row')];
+    const items = rows.map(r=>({
+      qty: parseFloat(r.querySelector('.item-qty').value)||0,
+      price: parseFloat(r.querySelector('.item-price').value)||0,
+      tax: parseFloat(r.querySelector('.item-tax').value)||0
+    }));
+    const {subtotal, taxTotal, total} = Invoices.computeTotals(items);
+    document.getElementById('calcSubtotal').textContent = fmt(subtotal);
+    document.getElementById('calcTax').textContent = fmt(taxTotal);
+    document.getElementById('calcTotal').textContent = fmt(total);
+  },
+
+  cancel(id){
+    if(!confirm('Cancel this invoice? This cannot be undone.')) return;
+    db.collection('invoices').doc(id).update({status:'cancelled'})
+      .then(()=>{ closeModal(); toast('Invoice cancelled'); })
+      .catch(err=>toast('Error: '+err.message));
+  },
+
+  buildInvoiceDoc(id){
+    const inv = this.list().find(x=>x.id===id);
+    const cust = Customers.list().find(c=>c.id===inv.customerId) || {name:'Walk-in Customer'};
+    const s = Cache.settings;
+    const ref = inv.ref || {};
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm', format:'a4'});
+    const L = 10, R = 200, W = R - L;
+    let y = 10;
+    const rupee = n => 'Rs. ' + (Number(n)||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+    doc.setDrawColor(0); doc.setLineWidth(0.2);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text('TAX INVOICE', 105, y+5, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.text(`Printed on ${new Date().toLocaleString('en-IN')}`, R, y+5, {align:'right'});
+    y += 9;
+
+    // --- Seller / Buyer (left, stacked) + a single continuous invoice-meta column (right) ---
+    const metaColX = 130;
+    const metaRowsData = [
+      ['Invoice No.', inv.invoiceNo], ['Dated', inv.date],
+      ['Delivery Note', ref.deliveryNote], ['Mode/Terms of Pmt', ref.paymentMode],
+      ['Reference No. & Date', ref.refNo], ["Buyer's Order No.", ref.buyersOrderNo],
+      ['Dispatch Doc No.', ref.dispatchDocNo], ['Dispatched through', ref.dispatchedThrough],
+      ['Destination', ref.destination]
+    ];
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    const sellerLines = doc.splitTextToSize(
+      [s.address, `${s.phone||''}${s.phone&&s.email?', ':''}${s.email||''}`,
+       s.gstin?`GSTIN/UIN: ${s.gstin}`:'', s.stateName?`State Name: ${s.stateName}${s.stateCode?', Code: '+s.stateCode:''}`:'']
+      .filter(Boolean).join('\n'), metaColX-L-4);
+    const buyerLines = doc.splitTextToSize(
+      [cust.name, cust.address, cust.phone?`Contact: ${cust.phone}`:'', cust.gstin?`GSTIN/UIN: ${cust.gstin}`:'',
+       cust.stateName?`State Name: ${cust.stateName}${cust.stateCode?', Code: '+cust.stateCode:''}`:'']
+      .filter(Boolean).join('\n'), metaColX-L-4);
+
+    const sellerBlockH = 8 + sellerLines.length*3.8 + 3;
+    const buyerBlockMinH = Math.max(8 + buyerLines.length*3.8 + 3, 14);
+    const leftTotalH = sellerBlockH + buyerBlockMinH;
+    const metaRowMinH = 4.1;
+    const metaBlockMinH = metaRowsData.length*metaRowMinH + 5;
+    const boxH = Math.max(leftTotalH, metaBlockMinH);
+    const buyerBoxH = buyerBlockMinH + Math.max(boxH - leftTotalH, 0); // any extra height goes to the buyer box, not seller
+    const metaRowH = (boxH - 5) / metaRowsData.length; // meta rows spread out to fill the full box height
+
+    doc.rect(L, y, W, boxH);
+    doc.line(metaColX, y, metaColX, y+boxH);
+    doc.line(L, y+sellerBlockH, metaColX, y+sellerBlockH);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text(s.bizName || 'Your Business Name', L+2, y+5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.text(sellerLines, L+2, y+9.5);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('Buyer (Bill to)', L+2, y+sellerBlockH+4);
+    doc.setFont('helvetica','normal');
+    doc.text(buyerLines, L+2, y+sellerBlockH+8.5);
+
+    let my = y+4.3;
+    metaRowsData.forEach(([label,val])=>{
+      doc.setFont('helvetica','normal');
+      doc.text(label, metaColX+2, my);
+      doc.text(String(val||'-'), metaColX+38, my);
+      my += metaRowH;
+    });
+    y += boxH;
+
+    if(ref.termsOfDelivery){
+      doc.rect(L, y, W, 8);
+      doc.setFontSize(7.5);
+      doc.text('Terms of Delivery: '+ref.termsOfDelivery, L+2, y+5);
+      y += 8;
+    }
+
+    // Border style for the goods table: box + header underline + column dividers only
+    // (no horizontal line between item rows), with a line above/below the Total row.
+    const goodsTableBorders = (data) => {
+      const { cell, row, column, table } = data;
+      doc.setDrawColor(0); doc.setLineWidth(0.15);
+      if (column.index === 0) doc.line(cell.x, cell.y, cell.x, cell.y + cell.height);
+      doc.line(cell.x + cell.width, cell.y, cell.x + cell.width, cell.y + cell.height);
+      if (row.section === 'head') {
+        doc.line(cell.x, cell.y, cell.x + cell.width, cell.y);
+        doc.line(cell.x, cell.y + cell.height, cell.x + cell.width, cell.y + cell.height);
+      }
+      if (row.section === 'body' && row.index === table.body.length - 1) {
+        doc.line(cell.x, cell.y, cell.x + cell.width, cell.y);
+        doc.line(cell.x, cell.y + cell.height, cell.x + cell.width, cell.y + cell.height);
+      }
+    };
+
+    // Pad the goods list with blank rows so the table fills the page the way a printed
+    // Tally-style invoice does, and only spills to a new page once items genuinely don't fit.
+    // Prices are entered GST-inclusive; the printed invoice shows the back-calculated
+    // taxable (pre-tax) rate and amount per line, with GST broken out below as usual.
+    const exclRate = it => it.price / (1 + (it.tax/100));
+    const itemRows = inv.items.map((it,i)=>[
+      i+1, it.name, it.hsn||'-', `${it.qty} ${it.unit||''}`,
+      exclRate(it).toLocaleString('en-IN',{minimumFractionDigits:2}), it.unit||'-', rupee(it.qty*exclRate(it))
+    ]);
+    const half = inv.items.length ? inv.items[0].tax/2 : 0;
+    const summaryRows = [
+      ['', {content:'SGST @ '+half.toFixed(2)+' %', styles:{halign:'right'}}, '', '', '', '', rupee(inv.taxTotal/2)],
+      ['', {content:'CGST @ '+half.toFixed(2)+' %', styles:{halign:'right'}}, '', '', '', '', rupee(inv.taxTotal/2)],
+      ...(inv.roundOff ? [['', {content:'Round Off', styles:{halign:'right'}}, '', '', '', '', rupee(inv.roundOff)]] : []),
+      [{content:'Total', colSpan:3, styles:{fontStyle:'bold', halign:'right'}},
+       {content:inv.items.reduce((s,it)=>s+it.qty,0)+'', styles:{fontStyle:'bold'}}, '', '',
+       {content:rupee(inv.total), styles:{fontStyle:'bold'}}]
+    ];
+    const ROW_H = 6.2, HEAD_H = 7;
+    const trailerReserve = 79; // space needed below the table for words/HSN summary/status/bank/signature
+    const availableForTable = (287 - trailerReserve) - y;
+    const contentRows = itemRows.length + summaryRows.length;
+    const blankRow = ['', '', '', '', '', '', ''];
+    let blanksNeeded = Math.floor((availableForTable - HEAD_H - contentRows*ROW_H) / ROW_H);
+    if (blanksNeeded > 0 && blanksNeeded < 40) {
+      itemRows.push(...Array.from({length: blanksNeeded}, () => blankRow));
+    }
+
+    // --- Items table ---
+    doc.autoTable({
+      startY: y,
+      margin:{left:L, right:210-R, bottom:14},
+      head: [['Sl','Description of Goods','HSN/SAC','Qty','Rate','per','Amount']],
+      body: itemRows.concat(summaryRows),
+      styles:{fontSize:8, textColor:[0,0,0], cellPadding:1.6},
+      headStyles:{fillColor:[235,235,235], textColor:[0,0,0], fontStyle:'bold'},
+      columnStyles:{0:{cellWidth:10},1:{cellWidth:70},2:{cellWidth:24},3:{cellWidth:24},4:{cellWidth:22,halign:'right'},5:{cellWidth:14},6:{cellWidth:26,halign:'right'}},
+      theme:'plain',
+      didDrawCell: goodsTableBorders
+    });
+    y = doc.lastAutoTable.finalY + 4;
+
+    // --- Amount in words ---
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Amount Chargeable (in words):', L+2, y);
+    doc.setFont('helvetica','normal');
+    doc.text(amountInWords(inv.total), L+62, y);
+    y += 8;
+
+    // --- HSN tax summary table ---
+    const hsnMap = {};
+    inv.items.forEach(it=>{
+      const key = it.hsn||'-';
+      if(!hsnMap[key]) hsnMap[key] = {hsn:key, taxable:0, tax:it.tax};
+      hsnMap[key].taxable += it.qty*exclRate(it);
+    });
+    doc.autoTable({
+      startY: y,
+      margin:{left:L, right:210-R},
+      head: [['HSN/SAC','Taxable Value','CGST Rate','CGST Amt','SGST Rate','SGST Amt','Total Tax']],
+      body: Object.values(hsnMap).map(h=>{
+        const half = h.tax/2, taxAmt = h.taxable*(half/100);
+        return [h.hsn, rupee(h.taxable), half.toFixed(2)+'%', rupee(taxAmt), half.toFixed(2)+'%', rupee(taxAmt), rupee(taxAmt*2)];
+      }).concat([[{content:'Total',styles:{fontStyle:'bold'}}, {content:rupee(inv.subtotal),styles:{fontStyle:'bold'}}, '',
+        {content:rupee(inv.taxTotal/2),styles:{fontStyle:'bold'}}, '', {content:rupee(inv.taxTotal/2),styles:{fontStyle:'bold'}},
+        {content:rupee(inv.taxTotal),styles:{fontStyle:'bold'}}]]),
+      styles:{fontSize:7.5, lineColor:[0,0,0], lineWidth:0.15, textColor:[0,0,0], cellPadding:1.6},
+      headStyles:{fillColor:[235,235,235], textColor:[0,0,0], fontStyle:'bold', lineWidth:0.15},
+      columnStyles:{0:{cellWidth:26},1:{cellWidth:34},2:{cellWidth:20},3:{cellWidth:26},4:{cellWidth:20},5:{cellWidth:26},6:{cellWidth:38}},
+      theme:'grid'
+    });
+    y = doc.lastAutoTable.finalY + 4;
+
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Tax Amount (in words):', L+2, y);
+    doc.setFont('helvetica','normal');
+    doc.text(amountInWords(inv.taxTotal), L+45, y);
+    y += 8;
+
+    // --- Payment status ---
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(`Status: ${inv.status.toUpperCase()}   Paid: ${rupee(inv.paidAmount||0)}`, L+2, y+4);
+    y += 6;
+
+    // --- Bank + Declaration ---
+    const declY = y;
+    doc.rect(L, y, W, 26);
+    doc.line(L+95, y, L+95, y+26);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.text('Declaration', L+2, y+4);
+    doc.setFont('helvetica','normal');
+    const decLines = doc.splitTextToSize(s.declaration || 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.', 90);
+    doc.text(decLines, L+2, y+8);
+    if(inv.notes){ doc.setFontSize(7); doc.text(doc.splitTextToSize('Remarks: '+inv.notes, 90), L+2, y+8+decLines.length*3.4+2); }
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.text("Company's Bank Details", L+97, y+4);
+    doc.setFont('helvetica','normal');
+    doc.text([
+      `Bank Name: ${s.bankName||'-'}`,
+      `A/c No.: ${s.bankAccount||'-'}`,
+      `Branch & IFSC: ${s.bankBranchIfsc||'-'}`
+    ], L+97, y+9);
+    doc.setFont('helvetica','bold');
+    doc.text(`for ${s.bizName||'Your Business Name'}`, R-2, y+18, {align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    doc.text('Authorised Signatory', R-2, y+24, {align:'right'});
+    y += 26;
+
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.text('This is a Computer Generated Invoice', 105, y+5, {align:'center'});
+
+    return doc;
+  },
+
+  downloadPDF(id){
+    const inv = this.list().find(x=>x.id===id);
+    const doc = this.buildInvoiceDoc(id);
+    doc.save(`${inv.invoiceNo}.pdf`);
+  },
+
+  printPDF(id){
+    const doc = this.buildInvoiceDoc(id);
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
+  },
+
+  renderTable(){
+    const body = document.getElementById('invoiceTableBody');
+    const customers = Customers.list();
+    const filterText = (document.getElementById('invFilterText').value||'').toLowerCase();
+    const filterStatus = document.getElementById('invFilterStatus').value;
+    let list = [...this.list()].sort((a,b)=> b.date.localeCompare(a.date));
+    if(filterText) list = list.filter(i=>{
+      const cust = customers.find(c=>c.id===i.customerId);
+      return i.invoiceNo.toLowerCase().includes(filterText) || (cust && cust.name.toLowerCase().includes(filterText));
+    });
+    if(filterStatus) list = list.filter(i=>i.status===filterStatus);
+
+    body.innerHTML = list.length ? list.map(i=>{
+      const cust = customers.find(c=>c.id===i.customerId);
+      return `<tr>
+        <td class="mono">${i.invoiceNo}</td>
+        <td class="text-dim">${i.date}</td>
+        <td>${cust?cust.name:'—'}</td>
+        <td class="font-medium">${fmt(i.total)}</td>
+        <td><span class="badge badge-${i.status}">${i.status}</span></td>
+        <td class="text-right whitespace-nowrap">
+          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.openForm('${i.id}')">Open</button>
+          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.printPDF('${i.id}')">Print</button>
+          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.downloadPDF('${i.id}')">PDF</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="6" class="text-dim text-center py-8">No invoices yet.</td></tr>`;
+  }
+};
+document.getElementById('invFilterText').addEventListener('input', ()=>Invoices.renderTable());
+document.getElementById('invFilterStatus').addEventListener('change', ()=>Invoices.renderTable());
+
+/* ============================================================
+   USERS
+   ============================================================ */
+const Users = {
+  list(){ return Cache.profiles; },
+  openForm(){
+    openModal(`
+      <h3 class="font-semibold text-lg mb-4">Add Staff Account</h3>
+      <form id="userForm" class="space-y-3">
+        <div><label class="text-xs text-dim">Name *</label><input class="input mt-1" id="uName" required></div>
+        <div><label class="text-xs text-dim">Email *</label><input class="input mt-1" id="uEmail" type="email" required></div>
+        <div><label class="text-xs text-dim">Temporary Password * (min 6 characters)</label><input class="input mt-1" id="uPass" type="text" minlength="6" required></div>
+        <div><label class="text-xs text-dim">Role</label>
+          <select class="input mt-1" id="uRole"><option value="staff">Staff</option><option value="admin">Admin</option></select>
+        </div>
+        <p class="text-dim text-[11px]">Share this email and password with them so they can sign in from their own phone or laptop — everyone sees the same synced data.</p>
+        <div class="flex gap-2 pt-2">
+          <button class="btn btn-gold" type="submit">Create Account</button>
+          <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+        </div>
+      </form>`);
+    document.getElementById('userForm').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const name = uName.value.trim(), email = uEmail.value.trim(), pass = uPass.value, role = uRole.value;
+      try{
+        // Create the account on a throwaway secondary Firebase app instance so it doesn't
+        // sign the currently logged-in admin out of their own session.
+        const secondary = firebase.initializeApp(auth.app.options, 'Secondary'+Date.now());
+        const secAuth = secondary.auth();
+        const cred = await secAuth.createUserWithEmailAndPassword(email, pass);
+        await db.collection('profiles').doc(cred.user.uid).set({name, email, role});
+        await secAuth.signOut();
+        await secondary.delete();
+        closeModal();
+        toast('Staff account created');
+      }catch(err){ toast('Error: '+friendlyAuthError(err)); }
+    });
+  },
+  remove(id){
+    if(Cache.profiles.length<=1){ toast("Can't remove the last user"); return; }
+    if(!confirm("Remove this person's access? (Their login account still exists, it just won't reach this shop's data anymore.)")) return;
+    db.collection('profiles').doc(id).delete().catch(err=>toast('Error: '+err.message));
+  },
+  renderTable(){
+    const body = document.getElementById('userTableBody');
+    body.innerHTML = this.list().map(u=>`
+      <tr><td>${u.name||'—'}<br><span class="text-dim text-[10px]">${u.email||''}</span></td><td class="text-dim capitalize">${u.role}</td>
+      <td class="text-right"><button class="btn-danger btn !px-2 !py-1 text-xs" onclick="Users.remove('${u.id}')">Remove</button></td></tr>`
+    ).join('');
+  }
+};
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+const Settings = {
+  render(){
+    const s = Cache.settings;
+    setBizName.value = s.bizName||''; setAddress.value = s.address||'';
+    setPhone.value = s.phone||''; setEmail.value = s.email||''; setGstin.value = s.gstin||'';
+    setStateName.value = s.stateName||''; setStateCode.value = s.stateCode||'';
+    setPrefix.value = s.prefix||'INV-'; setNextNum.value = s.nextNum||1001; setDefaultTax.value = s.defaultTax??18;
+    setBankName.value = s.bankName||''; setBankAccount.value = s.bankAccount||''; setBankBranchIfsc.value = s.bankBranchIfsc||'';
+    setDeclaration.value = s.declaration||'';
+    Users.renderTable();
+  }
+};
+document.getElementById('settingsForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  try{
+    await db.collection('settings').doc('main').set({
+      bizName:setBizName.value, address:setAddress.value, phone:setPhone.value, email:setEmail.value,
+      gstin:setGstin.value, stateName:setStateName.value, stateCode:setStateCode.value,
+      prefix:setPrefix.value, nextNum:parseInt(setNextNum.value)||1001,
+      defaultTax:parseFloat(setDefaultTax.value)||0
+    }, {merge:true});
+    document.getElementById('settingsSaved').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('settingsSaved').classList.add('hidden'), 1800);
+  }catch(err){ toast('Error: '+err.message); }
+});
+document.getElementById('bankForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  try{
+    await db.collection('settings').doc('main').set({
+      bankName:setBankName.value, bankAccount:setBankAccount.value, bankBranchIfsc:setBankBranchIfsc.value,
+      declaration:setDeclaration.value
+    }, {merge:true});
+    document.getElementById('bankSaved').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('bankSaved').classList.add('hidden'), 1800);
+  }catch(err){ toast('Error: '+err.message); }
+});
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+let salesChartInstance = null;
+const Dashboard = {
+  render(){
+    const invoices = Invoices.list().filter(i=>i.status!=='cancelled');
+    const totalSales = invoices.reduce((s,i)=>s+i.total,0);
+    const outstanding = invoices.reduce((s,i)=>s+(i.total-(i.paidAmount||0)),0);
+    document.getElementById('statSales').textContent = fmt(totalSales);
+    document.getElementById('statOutstanding').textContent = fmt(outstanding);
+    document.getElementById('statInvoices').textContent = invoices.length;
+    document.getElementById('statCustomers').textContent = Customers.list().length;
+
+    // last 14 days
+    const days = [...Array(14)].map((_,i)=>{
+      const d = new Date(); d.setDate(d.getDate()-(13-i));
+      return d.toISOString().slice(0,10);
+    });
+    const totals = days.map(d=> invoices.filter(i=>i.date===d).reduce((s,i)=>s+i.total,0));
+
+    const ctx = document.getElementById('salesChart');
+    if(typeof Chart === 'undefined'){
+      ctx.replaceWith(Object.assign(document.createElement('p'), {className:'text-dim text-sm', textContent:'Chart library failed to load — everything else on this page still works.'}));
+    } else {
+      if(salesChartInstance) salesChartInstance.destroy();
+      salesChartInstance = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: days.map(d=>d.slice(5)), datasets:[{ label:'Sales', data: totals,
+          backgroundColor:'#f2b705', borderRadius:4 }]},
+        options:{ plugins:{legend:{display:false}}, scales:{
+          y:{ticks:{color:'#8f9ab3'}, grid:{color:'#232e4d'}},
+          x:{ticks:{color:'#8f9ab3'}, grid:{display:false}} } }
+      });
+    }
+
+    const recent = [...invoices].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+    const customers = Customers.list();
+    document.getElementById('recentInvoices').innerHTML = recent.length ? recent.map(i=>{
+      const c = customers.find(c=>c.id===i.customerId);
+      return `<div class="flex justify-between items-center border-b border-line pb-2 last:border-0 last:pb-0">
+        <div><p class="font-medium">${i.invoiceNo}</p><p class="text-dim text-xs">${c?c.name:'—'}</p></div>
+        <div class="text-right"><p class="font-medium">${fmt(i.total)}</p><span class="badge badge-${i.status} text-[10px]">${i.status}</span></div>
+      </div>`;
+    }).join('') : `<p class="text-dim">No invoices yet.</p>`;
+  }
+};
+
+/* ============================================================
+   REPORTS
+   ============================================================ */
+document.querySelectorAll('[data-report]').forEach(btn=>{
+  btn.addEventListener('click', ()=>Reports.run(btn.dataset.report));
+});
+const Reports = {
+  run(type){
+    const invoices = Invoices.list().filter(i=>i.status!=='cancelled');
+    const customers = Customers.list();
+    const out = document.getElementById('reportOutput');
+    if(type==='daily' || type==='monthly'){
+      const map = {};
+      invoices.forEach(i=>{
+        const key = type==='daily' ? i.date : i.date.slice(0,7);
+        map[key] = (map[key]||0) + i.total;
+      });
+      const rows = Object.entries(map).sort((a,b)=>b[0].localeCompare(a[0]));
+      out.innerHTML = `<table><thead><tr><th>${type==='daily'?'Date':'Month'}</th><th>Sales</th></tr></thead>
+        <tbody>${rows.length?rows.map(([k,v])=>`<tr><td>${k}</td><td>${fmt(v)}</td></tr>`).join(''):'<tr><td colspan=2 class="text-dim text-center py-6">No data</td></tr>'}</tbody></table>`;
+    }
+    if(type==='outstanding'){
+      const rows = customers.map(c=>({name:c.name, amt:Customers.outstandingFor(c.id)})).filter(r=>r.amt>0)
+        .sort((a,b)=>b.amt-a.amt);
+      out.innerHTML = `<table><thead><tr><th>Customer</th><th>Outstanding</th></tr></thead>
+        <tbody>${rows.length?rows.map(r=>`<tr><td>${r.name}</td><td class="text-ember">${fmt(r.amt)}</td></tr>`).join(''):'<tr><td colspan=2 class="text-dim text-center py-6">No outstanding balances 🎉</td></tr>'}</tbody></table>`;
+    }
+    if(type==='tax'){
+      const subtotal = invoices.reduce((s,i)=>s+i.subtotal,0);
+      const tax = invoices.reduce((s,i)=>s+i.taxTotal,0);
+      out.innerHTML = `
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="card p-4"><p class="text-dim text-xs">Taxable Value</p><p class="text-lg font-bold mt-1">${fmt(subtotal)}</p></div>
+          <div class="card p-4"><p class="text-dim text-xs">Tax Collected</p><p class="text-lg font-bold mt-1 text-gold">${fmt(tax)}</p></div>
+          <div class="card p-4"><p class="text-dim text-xs">Total Billed</p><p class="text-lg font-bold mt-1">${fmt(subtotal+tax)}</p></div>
+        </div>
+        <table><thead><tr><th>Invoice #</th><th>Date</th><th>Taxable</th><th>Tax</th></tr></thead>
+        <tbody>${invoices.length?invoices.map(i=>`<tr><td class="mono">${i.invoiceNo}</td><td class="text-dim">${i.date}</td><td>${fmt(i.subtotal)}</td><td>${fmt(i.taxTotal)}</td></tr>`).join(''):'<tr><td colspan=4 class="text-dim text-center py-6">No data</td></tr>'}</tbody></table>`;
+    }
+  }
+};
+
+/* ============================================================
+   GLOBAL SEARCH
+   ============================================================ */
+const searchInput = document.getElementById('globalSearch');
+const searchResults = document.getElementById('searchResults');
+searchInput.addEventListener('input', ()=>{
+  const q = searchInput.value.trim().toLowerCase();
+  if(!q){ searchResults.classList.add('hidden'); return; }
+  const custs = Customers.list().filter(c=>c.name.toLowerCase().includes(q)).slice(0,4);
+  const prods = Products.list().filter(p=>p.name.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q)).slice(0,4);
+  const invs = Invoices.list().filter(i=>i.invoiceNo.toLowerCase().includes(q)).slice(0,4);
+  let html = '';
+  if(custs.length) html += `<p class="text-dim text-[11px] px-2 pt-1">Customers</p>` + custs.map(c=>`<div class="nav-item" onclick="Customers.openForm('${c.id}'); searchResults.classList.add('hidden'); searchInput.value='';">${c.name}</div>`).join('');
+  if(prods.length) html += `<p class="text-dim text-[11px] px-2 pt-1">Products</p>` + prods.map(p=>`<div class="nav-item" onclick="Products.openForm('${p.id}'); searchResults.classList.add('hidden'); searchInput.value='';">${p.name}</div>`).join('');
+  if(invs.length) html += `<p class="text-dim text-[11px] px-2 pt-1">Invoices</p>` + invs.map(i=>`<div class="nav-item" onclick="Invoices.openForm('${i.id}'); searchResults.classList.add('hidden'); searchInput.value='';">${i.invoiceNo}</div>`).join('');
+  searchResults.innerHTML = html || `<p class="text-dim text-sm p-2">No matches</p>`;
+  searchResults.classList.remove('hidden');
+});
+document.addEventListener('click', e=>{
+  if(!searchResults.contains(e.target) && e.target!==searchInput) searchResults.classList.add('hidden');
+});
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+function bootApp(){
+  document.getElementById('connectView').classList.add('hidden');
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  document.getElementById('sidebarUserName').textContent = currentProfile.name || currentProfile.email;
+  document.getElementById('sidebarUserRole').textContent = currentProfile.role;
+  document.querySelectorAll('[data-admin-only]').forEach(el=> el.style.display = Auth.isAdmin() ? '' : 'none');
+  const startView = (location.hash||'#dashboard').slice(1);
+  showView(['dashboard','invoices','customers','products','reports','settings'].includes(startView) && (startView!=='settings'||Auth.isAdmin()) ? startView : 'dashboard');
+}
+
+// Skip the Connect screen entirely when a config is baked into this file — go
+// straight to the login screen. Falls back to the manual Connect flow only if
+// this copy of the file has no config embedded (e.g. a fresh unconfigured template).
+(function initApp(){
+  if(EMBEDDED_FIREBASE_CONFIG && EMBEDDED_FIREBASE_CONFIG.apiKey){
+    showLogin();
+    initFirebase(EMBEDDED_FIREBASE_CONFIG);
+    return;
+  }
+  const saved = localStorage.getItem('crackers_fb_config');
+  if(saved){
+    try{
+      const cfg = JSON.parse(saved);
+      showLogin();
+      initFirebase(cfg);
+      return;
+    }catch(e){ /* fall through to connect screen */ }
+  }
+  showConnect();
+})();
+
+</script>
+</body>
+</html>
