@@ -92,6 +92,66 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body class="min-h-screen">
 
+<!-- ===================== LANDING (CUSTOMER / STAFF CHOICE) ===================== -->
+<div id="landingView" class="sky min-h-screen flex items-center justify-center p-5 relative overflow-hidden hidden">
+  <div class="card w-full max-w-md p-8 relative z-10 text-center">
+    <div class="flex items-center justify-center gap-2 mb-1">
+      <span class="text-3xl">🎆</span>
+    </div>
+    <h1 class="display text-2xl font-bold mt-2">Vinayaga <span class="text-gold">Crackers</span> &amp; Events</h1>
+    <p class="text-dim text-sm mb-8 mt-1">How would you like to continue?</p>
+    <div class="space-y-3">
+      <button id="landingCustomerBtn" class="btn btn-gold w-full !py-3 text-base">🛍️ I'm a Customer — Place an Order</button>
+      <button id="landingStaffBtn" class="btn btn-ghost w-full !py-3 text-base">🔐 I'm Staff — Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== CUSTOMER ORDERING PORTAL ===================== -->
+<div id="portalView" class="sky min-h-screen hidden">
+  <header class="bg-panel border-b border-line px-4 py-3 flex items-center gap-3 sticky top-0 z-20">
+    <button id="portalBackBtn" class="btn-ghost btn !px-2 !py-1.5 text-xs">← Back</button>
+    <h1 class="display text-base font-bold flex-1">Vinayaga <span class="text-gold">Crackers</span> &amp; Events</h1>
+    <button id="portalCartBtn" class="btn btn-gold text-sm relative">
+      🛒 Cart <span id="portalCartCount" class="hidden bg-black/30 rounded-full px-1.5 py-0.5 text-[11px] ml-1">0</span>
+    </button>
+  </header>
+
+  <main class="p-4 md:p-6 max-w-3xl mx-auto">
+    <div id="portalCatalogView">
+      <p class="text-dim text-sm mb-3">Browse our items below, add what you'd like to your cart, then send us your order — we'll contact you to confirm.</p>
+      <input id="portalSearch" class="input mb-4" placeholder="Search products…">
+      <div id="portalProductList" class="space-y-2"></div>
+    </div>
+
+    <div id="portalCartView" class="hidden">
+      <h2 class="display text-xl font-bold mb-3">Your Cart</h2>
+      <div id="portalCartItems" class="space-y-2 mb-4"></div>
+      <div class="card p-4 mb-4">
+        <div class="flex justify-between font-bold text-gold text-lg"><span>Total</span><span id="portalCartTotal">₹0</span></div>
+      </div>
+      <button id="portalContinueShoppingBtn" class="btn-ghost btn text-sm mb-4">← Continue browsing</button>
+
+      <div class="card p-4 space-y-3">
+        <h3 class="font-semibold">Your details</h3>
+        <div><label class="text-xs text-dim">Name *</label><input class="input mt-1" id="portalName" required></div>
+        <div><label class="text-xs text-dim">Phone *</label><input class="input mt-1" id="portalPhone" type="tel" required></div>
+        <div><label class="text-xs text-dim">Delivery / Pickup Address</label><textarea class="input mt-1" id="portalAddress" rows="2"></textarea></div>
+        <div><label class="text-xs text-dim">Notes (optional)</label><input class="input mt-1" id="portalNotes" placeholder="Any special requests"></div>
+        <button id="portalSubmitOrderBtn" class="btn btn-gold w-full !py-3">Place Order</button>
+        <p id="portalOrderError" class="text-ember text-xs hidden"></p>
+      </div>
+    </div>
+
+    <div id="portalConfirmView" class="hidden text-center py-10">
+      <p class="text-5xl mb-4">🎉</p>
+      <h2 class="display text-xl font-bold mb-2">Order received!</h2>
+      <p class="text-dim text-sm mb-6">Thanks — we'll contact you shortly at the number you gave us to confirm your order.</p>
+      <button id="portalPlaceAnotherBtn" class="btn btn-gold">Place another order</button>
+    </div>
+  </main>
+</div>
+
 <!-- ===================== CONNECT (FIREBASE SETUP) VIEW ===================== -->
 <div id="connectView" class="sky min-h-screen flex items-center justify-center p-5 relative overflow-hidden">
   <div class="card w-full max-w-lg p-8 relative z-10">
@@ -133,16 +193,13 @@ tr:last-child td{border-bottom:none;}
         <label class="text-xs text-dim">Password</label>
         <input class="input mt-1" id="loginPass" type="password" placeholder="••••••••" required>
       </div>
-      <div id="signupNameField" class="hidden">
-        <label class="text-xs text-dim">Your name</label>
-        <input class="input mt-1" id="signupName" placeholder="Owner name">
-      </div>
       <p id="loginError" class="text-ember text-xs hidden"></p>
       <button class="btn btn-gold w-full mt-2" type="submit" id="loginSubmitBtn">Sign in</button>
     </form>
     <p class="text-dim text-xs mt-5 leading-relaxed">
-      First time on this database? <button type="button" id="toggleSignupBtn" class="text-gold underline">Create the admin account</button>
+      New staff accounts are created by an admin under Settings → Users, not here.
     </p>
+    <button id="loginBackBtn" class="text-dim text-xs underline mt-3">← Back</button>
   </div>
 </div>
 
@@ -161,6 +218,7 @@ tr:last-child td{border-bottom:none;}
     </div>
     <nav class="space-y-1 flex-1 overflow-y-auto">
       <div class="nav-item" data-view="dashboard"><span>📊</span> Dashboard</div>
+      <div class="nav-item flex items-center justify-between" data-view="orders"><span>🛒 Orders</span><span id="ordersBadge" class="hidden bg-ember text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">0</span></div>
       <div class="nav-item" data-view="invoices"><span>🧾</span> Invoices</div>
       <div class="nav-item" data-view="customers"><span>👥</span> Customers</div>
       <div class="nav-item" data-view="products"><span>📦</span> Products &amp; Services</div>
@@ -217,6 +275,22 @@ tr:last-child td{border-bottom:none;}
         </div>
       </section>
 
+      <!-- ORDERS (from the customer ordering portal) -->
+      <section id="view-orders" class="view">
+        <h2 class="display text-2xl font-bold mb-1">Orders</h2>
+        <p class="text-dim text-sm mb-5">Orders customers placed themselves — review and convert them into invoices.</p>
+        <div class="card p-3 mb-4 flex flex-wrap gap-2 items-center">
+          <select id="orderFilterStatus" class="input max-w-[160px]">
+            <option value="">All statuses</option>
+            <option value="new" selected>New</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="converted">Converted</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div id="orderList" class="space-y-3"></div>
+      </section>
+
       <!-- INVOICES -->
       <section id="view-invoices" class="view">
         <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
@@ -260,6 +334,9 @@ tr:last-child td{border-bottom:none;}
           <button class="btn btn-gold text-sm" onclick="Products.openForm()">+ Add Product</button>
         </div>
         <p class="text-dim text-sm mb-5">Name, SKU, price, tax, stock.</p>
+        <div class="card p-3 mb-4">
+          <input id="prodFilterText" class="input max-w-sm" placeholder="Search by name, SKU or HSN…">
+        </div>
         <div class="card overflow-x-auto">
           <table><thead><tr><th>Name</th><th>SKU</th><th>Price (incl. GST)</th><th>Tax %</th><th>Stock</th><th></th></tr></thead>
           <tbody id="productTableBody"></tbody></table>
@@ -305,6 +382,13 @@ tr:last-child td{border-bottom:none;}
                 <div><label class="text-xs text-dim">Next Invoice #</label><input class="input mt-1" id="setNextNum" type="number"></div>
               </div>
               <div><label class="text-xs text-dim">Default GST %</label><input class="input mt-1" id="setDefaultTax" type="number" step="0.01"></div>
+              <div><label class="text-xs text-dim">Receipt Printer Width <span class="text-dim font-normal">(for the secondary roller-printer format)</span></label>
+                <select class="input mt-1" id="setReceiptWidth">
+                  <option value="58">58 mm</option>
+                  <option value="80">80 mm</option>
+                  <option value="100">100 mm</option>
+                </select>
+              </div>
               <button class="btn btn-gold text-sm" type="submit">Save Settings</button>
               <span id="settingsSaved" class="text-green text-xs ml-2 hidden">Saved ✓</span>
             </form>
@@ -366,18 +450,24 @@ const EMBEDDED_FIREBASE_CONFIG = {
 
 let db, auth, currentUser = null, currentProfile = null, currentView = 'dashboard';
 let listenerUnsubs = [];
-const Cache = { customers:[], products:[], invoices:[], settings:{}, profiles:[] };
+const Cache = { customers:[], products:[], invoices:[], settings:{}, profiles:[], orders:[] };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
+function hideAllTopLevelViews(){
+  ['landingView','portalView','connectView','loginView','appShell'].forEach(id=>
+    document.getElementById(id).classList.add('hidden'));
+}
+function showLanding(){
+  hideAllTopLevelViews();
+  document.getElementById('landingView').classList.remove('hidden');
+}
 function showConnect(){
+  hideAllTopLevelViews();
   document.getElementById('connectView').classList.remove('hidden');
-  document.getElementById('loginView').classList.add('hidden');
-  document.getElementById('appShell').classList.add('hidden');
 }
 function showLogin(){
-  document.getElementById('connectView').classList.add('hidden');
+  hideAllTopLevelViews();
   document.getElementById('loginView').classList.remove('hidden');
-  document.getElementById('appShell').classList.add('hidden');
 }
 function showLoginError(msg){
   showLogin();
@@ -390,7 +480,7 @@ function initFirebase(config){
   db = firebase.firestore();
   auth = firebase.auth();
   auth.onAuthStateChanged(async user => {
-    if(!user){ currentUser = null; currentProfile = null; listenerUnsubs.forEach(u=>u()); listenerUnsubs = []; showLogin(); return; }
+    if(!user){ currentUser = null; currentProfile = null; listenerUnsubs.forEach(u=>u()); listenerUnsubs = []; showLanding(); return; }
     currentUser = user;
     try{
       const snap = await db.collection('profiles').doc(user.uid).get();
@@ -470,6 +560,15 @@ function startListeners(){
     Cache.profiles = snap.docs.map(d=>({id:d.id, ...d.data()}));
     if(currentView==='settings') Users.renderTable();
   }, err=>toast('Sync error: '+err.message)));
+  listenerUnsubs.push(db.collection('orders').onSnapshot(snap=>{
+    Cache.orders = snap.docs.map(d=>({id:d.id, ...d.data()}))
+      .sort((a,b)=> (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+    const newCount = Cache.orders.filter(o=>o.status==='new').length;
+    const badge = document.getElementById('ordersBadge');
+    badge.textContent = newCount;
+    badge.classList.toggle('hidden', newCount===0);
+    if(currentView==='orders') Orders.renderList();
+  }, err=>toast('Sync error: '+err.message)));
 }
 
 // Accepts strict JSON, a bare {...} object with unquoted keys, or the whole code
@@ -535,20 +634,12 @@ const Auth = {
   logout(){ auth.signOut(); }
 };
 
-let signupMode = false;
-document.getElementById('toggleSignupBtn').addEventListener('click', ()=>{
-  signupMode = !signupMode;
-  document.getElementById('signupNameField').classList.toggle('hidden', !signupMode);
-  document.getElementById('loginSubmitBtn').textContent = signupMode ? 'Create admin account' : 'Sign in';
-  document.getElementById('toggleSignupBtn').textContent = signupMode ? 'Back to sign in' : 'Create the admin account';
-});
-
 function friendlyAuthError(err){
   switch(err.code){
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return "Incorrect email or password. First time on this database? Use \"Create the admin account\" below instead of signing in.";
+      return "Incorrect email or password. Double-check with your admin if you're not sure.";
     case 'auth/email-already-in-use':
       return 'An account with that email already exists on this database — try signing in instead.';
     case 'auth/weak-password':
@@ -575,14 +666,7 @@ document.getElementById('loginForm').addEventListener('submit', async e=>{
   const errEl = document.getElementById('loginError');
   errEl.classList.add('hidden');
   try{
-    if(signupMode){
-      const name = document.getElementById('signupName').value.trim() || email.split('@')[0];
-      const cred = await auth.createUserWithEmailAndPassword(email, pass);
-      await db.collection('profiles').doc(cred.user.uid).set({email, name, role:'admin'});
-      await seedDefaultsIfEmpty();
-    } else {
-      await auth.signInWithEmailAndPassword(email, pass);
-    }
+    await auth.signInWithEmailAndPassword(email, pass);
   }catch(err){
     errEl.textContent = friendlyAuthError(err);
     errEl.classList.remove('hidden');
@@ -620,6 +704,7 @@ function showView(name){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('overlay').classList.remove('open');
   if(name==='dashboard') Dashboard.render();
+  if(name==='orders') Orders.renderList();
   if(name==='invoices') Invoices.renderTable();
   if(name==='customers') Customers.renderTable();
   if(name==='products') Products.renderTable();
@@ -635,6 +720,11 @@ document.getElementById('overlay').addEventListener('click', ()=>{
   document.getElementById('overlay').classList.remove('open');
 });
 document.getElementById('newInvoiceBtn').addEventListener('click', ()=>Invoices.openForm());
+document.getElementById('landingCustomerBtn').addEventListener('click', ()=>CustomerPortal.open());
+document.getElementById('landingStaffBtn').addEventListener('click', ()=>showLogin());
+document.getElementById('loginBackBtn').addEventListener('click', ()=>showLanding());
+document.getElementById('portalBackBtn').addEventListener('click', ()=>{ CustomerPortal.close(); showLanding(); });
+document.getElementById('orderFilterStatus').addEventListener('change', ()=>Orders.renderList());
 
 /* ============================================================
    CUSTOMERS
@@ -753,9 +843,39 @@ const Products = {
     if(!confirm('Delete this product?')) return;
     db.collection('products').doc(id).delete().catch(err=>toast('Error: '+err.message));
   },
+  // Prints a scannable label for this product now (encodes its SKU, or its Firestore
+  // doc ID if no SKU is set) — groundwork for adding camera-based scanning later.
+  showQR(id){
+    const p = this.list().find(x=>x.id===id);
+    if(!p) return;
+    const code = p.sku || p.id;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(code)}`;
+    openModal(`
+      <h3 class="font-semibold text-lg mb-1">Product QR Label</h3>
+      <p class="text-dim text-xs mb-4">Print and stick this on the item. Encodes: <span class="mono text-gold">${code}</span></p>
+      <div id="qrPrintArea" class="text-center bg-white rounded-xl p-5">
+        <img src="${qrUrl}" alt="QR code" class="mx-auto" width="180" height="180">
+        <p class="text-black font-semibold mt-2">${p.name}</p>
+        <p class="text-black text-xs mt-1">${fmt(p.price)}${p.unit?(' / '+p.unit):''}</p>
+      </div>
+      <div class="flex gap-2 pt-4">
+        <button class="btn btn-gold" type="button" onclick="Products.printQR()">Print</button>
+        <button class="btn btn-ghost" type="button" onclick="closeModal()">Close</button>
+      </div>`);
+  },
+  printQR(){
+    const html = document.getElementById('qrPrintArea').outerHTML;
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>QR Label</title></head><body onload="window.print()">${html}</body></html>`);
+    w.document.close();
+  },
   renderTable(){
     const body = document.getElementById('productTableBody');
-    const list = this.list();
+    const term = (document.getElementById('prodFilterText')?.value||'').trim().toLowerCase();
+    let list = this.list();
+    if(term) list = list.filter(p=>
+      p.name.toLowerCase().includes(term) || (p.sku||'').toLowerCase().includes(term) || (p.hsn||'').toLowerCase().includes(term)
+    );
     body.innerHTML = list.length ? list.map(p=>`
       <tr>
         <td class="font-medium">${p.name}</td>
@@ -764,12 +884,14 @@ const Products = {
         <td class="text-dim">${p.tax}%</td>
         <td class="${p.stock<=5?'text-ember':''}">${p.stock}</td>
         <td class="text-right whitespace-nowrap">
+          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Products.showQR('${p.id}')">QR</button>
           <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Products.openForm('${p.id}')">Edit</button>
           <button class="btn-danger btn !px-2 !py-1 text-xs" onclick="Products.remove('${p.id}')">Delete</button>
         </td>
-      </tr>`).join('') : `<tr><td colspan="6" class="text-dim text-center py-8">No products yet. Add your first one.</td></tr>`;
+      </tr>`).join('') : `<tr><td colspan="6" class="text-dim text-center py-8">${term?'No products match that search.':'No products yet. Add your first one.'}</td></tr>`;
   }
 };
+document.getElementById('prodFilterText').addEventListener('input', ()=>Products.renderTable());
 
 /* ============================================================
    INDIAN CURRENCY-IN-WORDS
@@ -806,20 +928,23 @@ function amountInWords(amount){
 const Invoices = {
   list(){ return Cache.invoices; },
 
-  openForm(id){
+  openForm(id, opts={}){
     const inv = id ? this.list().find(x=>x.id===id) : null;
     const customers = Customers.list();
     const products = Products.list();
-    const items = inv ? JSON.parse(JSON.stringify(inv.items)) : [];
+    const items = inv ? JSON.parse(JSON.stringify(inv.items)) : (opts.prefillItems ? JSON.parse(JSON.stringify(opts.prefillItems)) : []);
     const settings = Cache.settings;
     const ref = inv ? (inv.ref||{}) : {};
+    const selectedCustomerId = inv ? inv.customerId : (opts.prefillCustomerId || '');
 
+    const productName = pid => (products.find(p=>p.id===pid)||{}).name || '';
     const rowHtml = (it, idx) => `
       <div class="grid grid-cols-12 gap-2 items-center item-row" data-idx="${idx}">
-        <select class="input col-span-5 item-product">
-          <option value="">Select product…</option>
-          ${products.map(p=>`<option value="${p.id}" ${it.productId===p.id?'selected':''}>${p.name}</option>`).join('')}
-        </select>
+        <div class="col-span-5 relative product-picker">
+          <input type="hidden" class="item-product" value="${it.productId||''}">
+          <input class="input item-product-search" placeholder="Search product…" autocomplete="off" value="${productName(it.productId)}">
+          <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
+        </div>
         <input class="input col-span-2 item-qty" type="number" min="1" value="${it.qty||1}">
         <input class="input col-span-2 item-price" type="number" step="0.01" value="${it.price??''}" placeholder="Price (incl. GST)">
         <input class="input col-span-2 item-tax" type="number" step="0.01" value="${it.tax??''}" placeholder="GST%">
@@ -827,7 +952,8 @@ const Invoices = {
       </div>`;
 
     openModal(`
-      <h3 class="font-semibold text-lg mb-4">${id?'Edit':'New'} Invoice</h3>
+      <h3 class="font-semibold text-lg mb-1">${id?'Edit':'New'} Invoice</h3>
+      ${opts.fromOrderId?`<p class="text-gold text-xs mb-3">🛒 Created from a customer order — review before saving.</p>`:'<div class="mb-4"></div>'}
       <form id="invForm">
         <div class="grid md:grid-cols-3 gap-2 mb-3">
           <div><label class="text-xs text-dim">Invoice #</label><input class="input mt-1 mono" id="iNumber" value="${inv?inv.invoiceNo:(settings.prefix||'INV-')+ (settings.nextNum||1001)}" ${inv?'readonly':''}></div>
@@ -836,7 +962,7 @@ const Invoices = {
             <div class="flex gap-1 mt-1">
               <select class="input" id="iCustomer" required>
                 <option value="">Select…</option>
-                ${customers.map(c=>`<option value="${c.id}" ${inv&&inv.customerId===c.id?'selected':''}>${c.name}</option>`).join('')}
+                ${customers.map(c=>`<option value="${c.id}" ${selectedCustomerId===c.id?'selected':''}>${c.name}</option>`).join('')}
               </select>
               <button type="button" class="btn-ghost btn !px-2 !py-1 text-xs whitespace-nowrap" onclick="Invoices.toggleQuickCustomer()">+ New</button>
             </div>
@@ -907,20 +1033,42 @@ const Invoices = {
           <button class="btn btn-gold" type="submit">Save Invoice</button>
           ${inv?`<button class="btn btn-ghost" type="button" onclick="Invoices.printPDF('${inv.id}')">Print</button>`:''}
           ${inv?`<button class="btn btn-ghost" type="button" onclick="Invoices.downloadPDF('${inv.id}')">Download PDF</button>`:''}
+          ${inv?`<button class="btn btn-ghost" type="button" onclick="Invoices.printReceipt('${inv.id}')">Print Receipt</button>`:''}
+          ${inv?`<button class="btn btn-ghost" type="button" onclick="Invoices.downloadReceipt('${inv.id}')">Download Receipt</button>`:''}
           ${inv&&inv.status!=='cancelled'?`<button class="btn btn-danger" type="button" onclick="Invoices.cancel('${inv.id}')">Cancel Invoice</button>`:''}
           <button class="btn btn-ghost" type="button" onclick="closeModal()">Close</button>
         </div>
       </form>`);
 
-    document.getElementById('itemRows').addEventListener('input', Invoices.recalc);
-    document.getElementById('itemRows').addEventListener('change', e=>{
-      if(e.target.classList.contains('item-product')){
-        const row = e.target.closest('.item-row');
-        const prod = products.find(p=>p.id===e.target.value);
-        if(prod){ row.querySelector('.item-price').value = prod.price; row.querySelector('.item-tax').value = prod.tax; }
+    document.getElementById('itemRows').addEventListener('input', e=>{
+      if(e.target.classList.contains('item-product-search')){
+        const wrapper = e.target.closest('.product-picker');
+        const resultsEl = wrapper.querySelector('.product-picker-results');
+        const term = e.target.value.trim();
+        wrapper.querySelector('.item-product').value = '';
+        if(!term){ resultsEl.classList.add('hidden'); return; }
+        const matches = Products.list().filter(p=>
+          p.name.toLowerCase().includes(term.toLowerCase()) ||
+          (p.sku||'').toLowerCase().includes(term.toLowerCase()) ||
+          (p.hsn||'').toLowerCase().includes(term.toLowerCase())
+        ).slice(0,25);
+        resultsEl.innerHTML = matches.length ? matches.map(p=>`
+          <div class="nav-item" onclick="Invoices.selectRowProduct(this.closest('.product-picker'), '${p.id}')">
+            ${p.name} <span class="text-dim text-[10px]">${p.sku?('· '+p.sku+' '):''}· ₹${p.price}${p.stock<=5?' · <span class=\"text-ember\">low stock</span>':''}</span>
+          </div>`).join('') : `<p class="text-dim text-sm p-2">No matches</p>`;
+        resultsEl.classList.remove('hidden');
+      } else {
+        Invoices.recalc();
       }
-      Invoices.recalc();
     });
+    if(!window._productPickerOutsideClickBound){
+      window._productPickerOutsideClickBound = true;
+      document.addEventListener('click', e=>{
+        document.querySelectorAll('.product-picker-results').forEach(el=>{
+          if(!el.closest('.product-picker').contains(e.target)) el.classList.add('hidden');
+        });
+      });
+    }
     Invoices.recalc();
 
     document.getElementById('invForm').addEventListener('submit', async e=>{
@@ -955,6 +1103,9 @@ const Invoices = {
         } else {
           await db.collection('invoices').add(data);
           await db.collection('settings').doc('main').update({nextNum: firebase.firestore.FieldValue.increment(1)});
+          if(opts.fromOrderId){
+            await db.collection('orders').doc(opts.fromOrderId).update({status:'converted', invoiceNo: data.invoiceNo});
+          }
         }
         closeModal();
         toast('Invoice saved');
@@ -990,17 +1141,31 @@ const Invoices = {
   },
 
   addItemRow(){
-    const products = Products.list();
     const wrap = document.createElement('div');
     wrap.innerHTML = `<div class="grid grid-cols-12 gap-2 items-center item-row">
-      <select class="input col-span-5 item-product"><option value="">Select product…</option>
-        ${products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+      <div class="col-span-5 relative product-picker">
+        <input type="hidden" class="item-product" value="">
+        <input class="input item-product-search" placeholder="Search product…" autocomplete="off">
+        <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
+      </div>
       <input class="input col-span-2 item-qty" type="number" min="1" value="1">
       <input class="input col-span-2 item-price" type="number" step="0.01" placeholder="Price (incl. GST)">
       <input class="input col-span-2 item-tax" type="number" step="0.01" placeholder="GST%">
       <button type="button" class="col-span-1 text-ember text-lg" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
     </div>`;
     document.getElementById('itemRows').appendChild(wrap.firstElementChild);
+  },
+
+  selectRowProduct(wrapperEl, productId){
+    const prod = Products.list().find(p=>p.id===productId);
+    if(!prod) return;
+    wrapperEl.querySelector('.item-product').value = productId;
+    wrapperEl.querySelector('.item-product-search').value = prod.name;
+    wrapperEl.querySelector('.product-picker-results').classList.add('hidden');
+    const row = wrapperEl.closest('.item-row');
+    row.querySelector('.item-price').value = prod.price;
+    row.querySelector('.item-tax').value = prod.tax;
+    Invoices.recalc();
   },
 
   // Product prices are entered GST-inclusive, so each line's taxable value and tax
@@ -1259,6 +1424,98 @@ const Invoices = {
     window.open(doc.output('bloburl'), '_blank');
   },
 
+  // Compact single-column layout for thermal roller printers (58/80/100mm rolls).
+  // First-draft layout — width is configurable in Settings, exact spacing/branding
+  // to be tuned once we have a reference sample from an actual printed receipt.
+  buildReceiptDoc(id){
+    const inv = this.list().find(x=>x.id===id);
+    const cust = Customers.list().find(c=>c.id===inv.customerId) || {name:'Walk-in Customer'};
+    const s = Cache.settings;
+    const widthMM = Number(s.receiptWidth) || 80;
+    const mX = 3, contentW = widthMM - mX*2;
+    const rupee = n => 'Rs. ' + (Number(n)||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const exclRate = it => it.price / (1 + (it.tax/100));
+
+    const lineH = 4.2;
+    const estHeight = 44 + (inv.items.length*7) + 42;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm', format:[widthMM, Math.max(estHeight, 95)]});
+    let y = 6;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text(s.bizName || 'Your Business', widthMM/2, y, {align:'center'}); y += 4.5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    if(s.address){ const lines = doc.splitTextToSize(s.address, contentW); doc.text(lines, widthMM/2, y, {align:'center'}); y += lines.length*3; }
+    if(s.phone){ doc.text('Ph: '+s.phone, widthMM/2, y, {align:'center'}); y += 3.2; }
+    if(s.gstin){ doc.text('GSTIN/UIN: '+s.gstin, widthMM/2, y, {align:'center'}); y += 3.2; }
+    if(s.stateName){ doc.text(`State: ${s.stateName}${s.stateCode?', Code: '+s.stateCode:''}`, widthMM/2, y, {align:'center'}); y += 3.2; }
+    y += 0.5;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('TAX INVOICE', widthMM/2, y, {align:'center'}); y += 3.8;
+    doc.setLineDashPattern([0.6,0.6],0); doc.line(mX,y,widthMM-mX,y); doc.setLineDashPattern([],0); y += 3.2;
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text('Bill No: '+inv.invoiceNo, mX, y);
+    doc.text(inv.date, widthMM-mX, y, {align:'right'}); y += 3.6;
+    doc.text('Time: '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), mX, y);
+    if(currentProfile?.name){ doc.text('Served by: '+currentProfile.name, widthMM-mX, y, {align:'right'}); }
+    y += 3.6;
+    doc.text('Customer: '+cust.name, mX, y); y += 3.6;
+    if(cust.phone){ doc.text('Ph: '+cust.phone, mX, y); y += 3.6; }
+    doc.line(mX,y,widthMM-mX,y); y += 3.5;
+
+    doc.setFont('helvetica','bold');
+    doc.text('SI', mX, y); doc.text('Description', mX+5, y); doc.text('Amount', widthMM-mX, y, {align:'right'}); y += 1;
+    doc.line(mX,y,widthMM-mX,y); y += 3.2;
+    doc.setFont('helvetica','normal');
+
+    inv.items.forEach((it,i)=>{
+      doc.text(String(i+1), mX, y);
+      const nameLines = doc.splitTextToSize(it.name, contentW-5);
+      doc.text(nameLines, mX+5, y); y += nameLines.length*3;
+      doc.setFontSize(6.5);
+      doc.text(`HSN ${it.hsn||'-'}  |  ${it.qty} ${it.unit||''} x ${rupee(exclRate(it))}`, mX+5, y);
+      doc.text(rupee(it.qty*exclRate(it)), widthMM-mX, y, {align:'right'});
+      doc.setFontSize(7);
+      y += lineH;
+    });
+
+    doc.line(mX,y,widthMM-mX,y); y += 3.6;
+    doc.text('Taxable Value', mX, y); doc.text(rupee(inv.subtotal), widthMM-mX, y, {align:'right'}); y += 3.4;
+    const half = inv.items.length ? inv.items[0].tax/2 : 0;
+    doc.text(`CGST @ ${half.toFixed(2)}%`, mX, y); doc.text(rupee(inv.taxTotal/2), widthMM-mX, y, {align:'right'}); y += 3.4;
+    doc.text(`SGST @ ${half.toFixed(2)}%`, mX, y); doc.text(rupee(inv.taxTotal/2), widthMM-mX, y, {align:'right'}); y += 3.4;
+    if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), widthMM-mX, y, {align:'right'}); y += 3.4; }
+    doc.line(mX,y,widthMM-mX,y); y += 4;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+    doc.text('TOTAL', mX, y); doc.text(rupee(inv.total), widthMM-mX, y, {align:'right'}); y += 5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+    doc.text(`Status: ${inv.status.toUpperCase()}   Paid: ${rupee(inv.paidAmount||0)}`, mX, y); y += 5;
+
+    if(s.declaration){
+      doc.setFontSize(6);
+      const decLines = doc.splitTextToSize(s.declaration, contentW);
+      doc.text(decLines, widthMM/2, y, {align:'center'}); y += decLines.length*2.6 + 2;
+    }
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.text('Thank you, visit again!', widthMM/2, y, {align:'center'}); y += 3.6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(6);
+    doc.text('Goods once sold cannot be taken back', widthMM/2, y, {align:'center'}); y += 3;
+    doc.text('Computer generated receipt', widthMM/2, y, {align:'center'});
+
+    return doc;
+  },
+  downloadReceipt(id){
+    const inv = this.list().find(x=>x.id===id);
+    this.buildReceiptDoc(id).save(`${inv.invoiceNo}-receipt.pdf`);
+  },
+  printReceipt(id){
+    const doc = this.buildReceiptDoc(id);
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
+  },
+
   renderTable(){
     const body = document.getElementById('invoiceTableBody');
     const customers = Customers.list();
@@ -1290,6 +1547,216 @@ const Invoices = {
 };
 document.getElementById('invFilterText').addEventListener('input', ()=>Invoices.renderTable());
 document.getElementById('invFilterStatus').addEventListener('change', ()=>Invoices.renderTable());
+
+/* ============================================================
+   ORDERS (submitted by customers through the ordering portal)
+   ============================================================ */
+const Orders = {
+  list(){ return Cache.orders; },
+  markStatus(id, status){
+    db.collection('orders').doc(id).update({status}).catch(err=>toast('Error: '+err.message));
+  },
+  async convert(id){
+    const order = this.list().find(o=>o.id===id);
+    if(!order) return;
+    const proceed = (customerId) => {
+      Invoices.openForm(undefined, {
+        prefillItems: order.items,
+        prefillCustomerId: customerId,
+        fromOrderId: order.id
+      });
+    };
+    const existing = Customers.list().find(c=>c.phone && order.customerPhone && c.phone===order.customerPhone);
+    if(existing){ proceed(existing.id); return; }
+    try{
+      const ref = await db.collection('customers').add({
+        name: order.customerName||'Customer', phone: order.customerPhone||'', email:'',
+        address: order.customerAddress||'', gstin:'', stateName:'', stateCode:'', shipTo:''
+      });
+      proceed(ref.id);
+    }catch(err){ toast('Error: '+err.message); }
+  },
+  renderList(){
+    const wrap = document.getElementById('orderList');
+    const filterStatus = document.getElementById('orderFilterStatus').value;
+    let list = this.list();
+    if(filterStatus) list = list.filter(o=>o.status===filterStatus);
+    if(!list.length){ wrap.innerHTML = `<div class="card p-8 text-center text-dim text-sm">No orders here.</div>`; return; }
+    wrap.innerHTML = list.map(o=>{
+      const total = o.items.reduce((s,it)=>s+it.qty*it.price,0);
+      const itemsSummary = o.items.map(it=>`${it.qty} × ${it.name}`).join(', ');
+      return `<div class="card p-4">
+        <div class="flex justify-between items-start gap-2 flex-wrap mb-2">
+          <div>
+            <p class="font-semibold">${o.customerName||'Customer'} <span class="text-dim text-xs font-normal">· ${o.customerPhone||'no phone'}</span></p>
+            ${o.customerAddress?`<p class="text-dim text-xs mt-0.5">${o.customerAddress}</p>`:''}
+          </div>
+          <span class="badge badge-${o.status==='new'?'pending':o.status==='confirmed'?'partial':o.status==='converted'?'paid':'cancelled'}">${o.status}</span>
+        </div>
+        <p class="text-sm mb-1">${itemsSummary}</p>
+        ${o.notes?`<p class="text-dim text-xs mb-2">Note: ${o.notes}</p>`:''}
+        <p class="font-medium text-gold mb-3">${fmt(total)}</p>
+        <div class="flex gap-2 flex-wrap">
+          ${o.status==='new'?`<button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Orders.markStatus('${o.id}','confirmed')">Mark Confirmed</button>`:''}
+          ${o.status!=='converted'&&o.status!=='cancelled'?`<button class="btn btn-gold !px-2 !py-1 text-xs" onclick="Orders.convert('${o.id}')">Convert to Invoice</button>`:''}
+          ${o.invoiceNo?`<span class="text-dim text-xs self-center">→ ${o.invoiceNo}</span>`:''}
+          ${o.status!=='converted'&&o.status!=='cancelled'?`<button class="btn-danger btn !px-2 !py-1 text-xs" onclick="Orders.markStatus('${o.id}','cancelled')">Cancel</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+};
+
+/* ============================================================
+   CUSTOMER ORDERING PORTAL (public — no login required)
+   ============================================================ */
+const CustomerPortal = {
+  cart: [],
+  _productsUnsub: null,
+
+  open(){
+    hideAllTopLevelViews();
+    document.getElementById('portalView').classList.remove('hidden');
+    this.showCatalog();
+    if(!this._productsUnsub){
+      const listEl = document.getElementById('portalProductList');
+      listEl.innerHTML = `<p class="text-dim text-sm">Loading products…</p>`;
+      this._productsUnsub = db.collection('products').onSnapshot(snap=>{
+        Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()}));
+        this.renderCatalog();
+      }, err=>{ listEl.innerHTML = `<p class="text-ember text-sm">Couldn't load products — ${err.message}</p>`; });
+    } else {
+      this.renderCatalog();
+    }
+  },
+  close(){
+    if(this._productsUnsub){ this._productsUnsub(); this._productsUnsub = null; }
+    this.cart = [];
+    this.updateCartBadge();
+  },
+
+  showCatalog(){
+    document.getElementById('portalCatalogView').classList.remove('hidden');
+    document.getElementById('portalCartView').classList.add('hidden');
+    document.getElementById('portalConfirmView').classList.add('hidden');
+    this.renderCatalog();
+  },
+  showCart(){
+    document.getElementById('portalCatalogView').classList.add('hidden');
+    document.getElementById('portalCartView').classList.remove('hidden');
+    document.getElementById('portalConfirmView').classList.add('hidden');
+    this.renderCart();
+  },
+  showConfirm(){
+    document.getElementById('portalCatalogView').classList.add('hidden');
+    document.getElementById('portalCartView').classList.add('hidden');
+    document.getElementById('portalConfirmView').classList.remove('hidden');
+  },
+
+  renderCatalog(){
+    const wrap = document.getElementById('portalProductList');
+    if(!Cache.products.length){ wrap.innerHTML = `<p class="text-dim text-sm">No products available right now — please check back soon.</p>`; return; }
+    const q = (document.getElementById('portalSearch').value||'').trim().toLowerCase();
+    const list = Cache.products.filter(p=> !q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q));
+    if(!list.length){ wrap.innerHTML = `<p class="text-dim text-sm">No matches for "${q}".</p>`; return; }
+    wrap.innerHTML = list.map(p=>{
+      const inCart = this.cart.find(c=>c.productId===p.id);
+      const outOfStock = (p.stock??0) <= 0;
+      return `<div class="card p-3 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-medium truncate">${p.name}</p>
+          <p class="text-dim text-xs">${fmt(p.price)}${p.unit?(' / '+p.unit):''}${outOfStock?' · <span class="text-ember">Out of stock</span>':''}</p>
+        </div>
+        <div class="shrink-0">
+          ${outOfStock ? `<span class="text-dim text-xs">Unavailable</span>` :
+            inCart ? `<div class="flex items-center gap-2">
+                <button class="btn-ghost btn !px-2 !py-1" onclick="CustomerPortal.changeQty('${p.id}',-1)">−</button>
+                <span class="w-5 text-center">${inCart.qty}</span>
+                <button class="btn-ghost btn !px-2 !py-1" onclick="CustomerPortal.changeQty('${p.id}',1)">+</button>
+              </div>` :
+            `<button class="btn btn-gold !px-3 !py-1.5 text-xs" onclick="CustomerPortal.addToCart('${p.id}')">Add</button>`
+          }
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  addToCart(id){
+    const p = Cache.products.find(x=>x.id===id);
+    if(!p) return;
+    const existing = this.cart.find(c=>c.productId===id);
+    if(existing){ existing.qty += 1; }
+    else { this.cart.push({productId:id, name:p.name, price:p.price, tax:p.tax||0, unit:p.unit||'', qty:1}); }
+    this.updateCartBadge(); this.renderCatalog();
+  },
+  changeQty(id, delta){
+    const item = this.cart.find(c=>c.productId===id);
+    if(!item) return;
+    item.qty += delta;
+    if(item.qty<=0) this.cart = this.cart.filter(c=>c.productId!==id);
+    this.updateCartBadge(); this.renderCatalog(); this.renderCart();
+  },
+  removeFromCart(id){
+    this.cart = this.cart.filter(c=>c.productId!==id);
+    this.updateCartBadge(); this.renderCatalog(); this.renderCart();
+  },
+  updateCartBadge(){
+    const count = this.cart.reduce((s,c)=>s+c.qty,0);
+    const el = document.getElementById('portalCartCount');
+    el.textContent = count; el.classList.toggle('hidden', count===0);
+  },
+  cartTotal(){ return this.cart.reduce((s,c)=>s+c.qty*c.price,0); },
+
+  renderCart(){
+    const wrap = document.getElementById('portalCartItems');
+    wrap.innerHTML = this.cart.length ? this.cart.map(c=>`
+      <div class="card p-3 flex items-center justify-between gap-3">
+        <div class="min-w-0"><p class="font-medium truncate">${c.name}</p><p class="text-dim text-xs">${fmt(c.price)} each</p></div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button class="btn-ghost btn !px-2 !py-1" onclick="CustomerPortal.changeQty('${c.productId}',-1)">−</button>
+          <span class="w-5 text-center">${c.qty}</span>
+          <button class="btn-ghost btn !px-2 !py-1" onclick="CustomerPortal.changeQty('${c.productId}',1)">+</button>
+          <button class="text-ember text-lg ml-1" onclick="CustomerPortal.removeFromCart('${c.productId}')">×</button>
+        </div>
+      </div>`).join('') : `<p class="text-dim text-sm">Your cart is empty — go back and add something.</p>`;
+    document.getElementById('portalCartTotal').textContent = fmt(this.cartTotal());
+  },
+
+  async submitOrder(){
+    const errEl = document.getElementById('portalOrderError');
+    errEl.classList.add('hidden');
+    const name = document.getElementById('portalName').value.trim();
+    const phone = document.getElementById('portalPhone').value.trim();
+    const address = document.getElementById('portalAddress').value.trim();
+    const notes = document.getElementById('portalNotes').value.trim();
+    if(!this.cart.length){ errEl.textContent = 'Your cart is empty.'; errEl.classList.remove('hidden'); return; }
+    if(!name || !phone){ errEl.textContent = 'Please enter your name and phone number.'; errEl.classList.remove('hidden'); return; }
+    const btn = document.getElementById('portalSubmitOrderBtn');
+    btn.disabled = true; btn.textContent = 'Placing order…';
+    try{
+      await db.collection('orders').add({
+        customerName: name, customerPhone: phone, customerAddress: address, notes,
+        items: this.cart.map(c=>({productId:c.productId, name:c.name, price:c.price, tax:c.tax, unit:c.unit, qty:c.qty})),
+        status: 'new',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      this.cart = [];
+      this.updateCartBadge();
+      ['portalName','portalPhone','portalAddress','portalNotes'].forEach(id=>document.getElementById(id).value='');
+      this.showConfirm();
+    }catch(err){
+      errEl.textContent = "Couldn't place your order — " + err.message;
+      errEl.classList.remove('hidden');
+    }finally{
+      btn.disabled = false; btn.textContent = 'Place Order';
+    }
+  }
+};
+document.getElementById('portalSearch').addEventListener('input', ()=>CustomerPortal.renderCatalog());
+document.getElementById('portalCartBtn').addEventListener('click', ()=>CustomerPortal.showCart());
+document.getElementById('portalContinueShoppingBtn').addEventListener('click', ()=>CustomerPortal.showCatalog());
+document.getElementById('portalSubmitOrderBtn').addEventListener('click', ()=>CustomerPortal.submitOrder());
+document.getElementById('portalPlaceAnotherBtn').addEventListener('click', ()=>CustomerPortal.showCatalog());
 
 /* ============================================================
    USERS
@@ -1353,6 +1820,7 @@ const Settings = {
     setPhone.value = s.phone||''; setEmail.value = s.email||''; setGstin.value = s.gstin||'';
     setStateName.value = s.stateName||''; setStateCode.value = s.stateCode||'';
     setPrefix.value = s.prefix||'INV-'; setNextNum.value = s.nextNum||1001; setDefaultTax.value = s.defaultTax??18;
+    setReceiptWidth.value = s.receiptWidth || '80';
     setBankName.value = s.bankName||''; setBankAccount.value = s.bankAccount||''; setBankBranchIfsc.value = s.bankBranchIfsc||'';
     setDeclaration.value = s.declaration||'';
     Users.renderTable();
@@ -1365,7 +1833,8 @@ document.getElementById('settingsForm').addEventListener('submit', async e=>{
       bizName:setBizName.value, address:setAddress.value, phone:setPhone.value, email:setEmail.value,
       gstin:setGstin.value, stateName:setStateName.value, stateCode:setStateCode.value,
       prefix:setPrefix.value, nextNum:parseInt(setNextNum.value)||1001,
-      defaultTax:parseFloat(setDefaultTax.value)||0
+      defaultTax:parseFloat(setDefaultTax.value)||0,
+      receiptWidth:setReceiptWidth.value
     }, {merge:true});
     document.getElementById('settingsSaved').classList.remove('hidden');
     setTimeout(()=>document.getElementById('settingsSaved').classList.add('hidden'), 1800);
@@ -1499,22 +1968,23 @@ document.addEventListener('click', e=>{
    BOOT
    ============================================================ */
 function bootApp(){
-  document.getElementById('connectView').classList.add('hidden');
-  document.getElementById('loginView').classList.add('hidden');
+  hideAllTopLevelViews();
   document.getElementById('appShell').classList.remove('hidden');
   document.getElementById('sidebarUserName').textContent = currentProfile.name || currentProfile.email;
   document.getElementById('sidebarUserRole').textContent = currentProfile.role;
   document.querySelectorAll('[data-admin-only]').forEach(el=> el.style.display = Auth.isAdmin() ? '' : 'none');
   const startView = (location.hash||'#dashboard').slice(1);
-  showView(['dashboard','invoices','customers','products','reports','settings'].includes(startView) && (startView!=='settings'||Auth.isAdmin()) ? startView : 'dashboard');
+  showView(['dashboard','orders','invoices','customers','products','reports','settings'].includes(startView) && (startView!=='settings'||Auth.isAdmin()) ? startView : 'dashboard');
 }
 
 // Skip the Connect screen entirely when a config is baked into this file — go
-// straight to the login screen. Falls back to the manual Connect flow only if
-// this copy of the file has no config embedded (e.g. a fresh unconfigured template).
+// straight to the landing screen (auth state resolves moments later: returning
+// staff get bounced straight into the app, everyone else sees Customer/Staff choice).
+// Falls back to the manual Connect flow only if this copy of the file has no config
+// embedded (e.g. a fresh unconfigured template).
 (function initApp(){
   if(EMBEDDED_FIREBASE_CONFIG && EMBEDDED_FIREBASE_CONFIG.apiKey){
-    showLogin();
+    showLanding();
     initFirebase(EMBEDDED_FIREBASE_CONFIG);
     return;
   }
@@ -1522,7 +1992,7 @@ function bootApp(){
   if(saved){
     try{
       const cfg = JSON.parse(saved);
-      showLogin();
+      showLanding();
       initFirebase(cfg);
       return;
     }catch(e){ /* fall through to connect screen */ }
