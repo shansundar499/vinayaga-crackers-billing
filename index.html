@@ -669,6 +669,39 @@ document.getElementById('connectForm').addEventListener('submit', e=>{
    ============================================================ */
 const fmt = n => '₹' + (Number(n)||0).toLocaleString('en-IN', {maximumFractionDigits:2});
 
+// Builds a nicely formatted WhatsApp message for an order — WhatsApp has no real
+// tables, but wrapping fixed-width padded text in a ``` monospace block ``` renders
+// as an aligned table on every device, combined with *bold* section headers.
+function buildOrderWhatsAppMessage(o){
+  const padRight = (str, len) => { str = String(str); return str.length >= len ? str.slice(0, len-1)+'…' : str + ' '.repeat(len-str.length); };
+  const padLeft  = (str, len) => { str = String(str); return str.length >= len ? str.slice(0, len) : ' '.repeat(len-str.length) + str; };
+  const money = n => Math.round(Number(n)||0).toLocaleString('en-IN');
+
+  const NAME_W = 15, QTY_W = 4, AMT_W = 9;
+  const sep = '-'.repeat(NAME_W + QTY_W + AMT_W);
+  const tableLines = [
+    padRight('Item', NAME_W) + padLeft('Qty', QTY_W) + padLeft('Amt', AMT_W),
+    sep,
+    ...o.items.map(it => padRight(it.name, NAME_W) + padLeft(it.qty, QTY_W) + padLeft(money(it.qty*it.price), AMT_W)),
+    sep
+  ];
+  const total = o.items.reduce((s,it)=>s+it.qty*it.price,0);
+
+  const lines = [];
+  lines.push('🧾 *NEW ORDER* — Vinayaga Crackers');
+  lines.push('');
+  lines.push(`👤 *${o.customerName||'Customer'}*`);
+  lines.push(`📞 ${o.customerPhone||'—'}`);
+  if(o.customerAddress) lines.push(`🏠 ${o.customerAddress}`);
+  lines.push('');
+  lines.push('```');
+  lines.push(...tableLines);
+  lines.push('```');
+  lines.push(`💰 *Total: ₹${money(total)}*`);
+  if(o.notes){ lines.push(''); lines.push(`📝 *Note:* ${o.notes}`); }
+  return lines.join('\n');
+}
+
 // Downscales an uploaded image client-side (max dimension in px, JPEG ~0.8 quality)
 // before it goes to Firebase Storage — keeps product photos fast to load in the
 // customer portal without needing a server-side image pipeline.
@@ -1727,15 +1760,7 @@ const Orders = {
   shareWhatsApp(id){
     const o = this.list().find(x=>x.id===id);
     if(!o) return;
-    const total = o.items.reduce((s,it)=>s+it.qty*it.price,0);
-    const lines = [
-      `🛒 New order — ${o.customerName||'Customer'} (${o.customerPhone||'no phone'})`,
-      ...o.items.map(it=>`• ${it.qty} x ${it.name} — ${fmt(it.qty*it.price)}`),
-      `Total: ${fmt(total)}`,
-      o.customerAddress ? `Address: ${o.customerAddress}` : '',
-      o.notes ? `Note: ${o.notes}` : ''
-    ].filter(Boolean);
-    const url = 'https://wa.me/?text=' + encodeURIComponent(lines.join('\n'));
+    const url = 'https://wa.me/?text=' + encodeURIComponent(buildOrderWhatsAppMessage(o));
     window.open(url, '_blank');
   },
   async convert(id){
