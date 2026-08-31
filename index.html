@@ -4,7 +4,7 @@
 <script>
   // Applied before first paint so switching devices/reloading never flashes the wrong theme.
   (function(){ try{
-    document.documentElement.setAttribute('data-theme', localStorage.getItem('crackers_theme') === 'light' ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', localStorage.getItem('crackers_theme') === 'dark' ? 'dark' : 'light');
   }catch(e){} })();
 </script>
 <meta charset="UTF-8">
@@ -25,11 +25,15 @@
   --bg:#0a0e1a; --bg2:#0e1424; --panel:#121a2e; --panel2:#161f38;
   --line:#232e4d; --gold:#f2b705; --gold2:#ffd54a; --ember:#ff5b2e;
   --text:#f2efe6; --dim:#8f9ab3; --green:#34d399; --amber:#fbbf24; --red:#f87171;
+  --gold-tint:#f2b70522; --green-tint:#34d39922; --amber-tint:#fbbf2422;
+  --red-tint:#f8717122; --red-border-tint:#f8717155; --red-hover-tint:#f8717118;
 }
 html[data-theme="light"]{
   --bg:#f4f2ec; --bg2:#ffffff; --panel:#ffffff; --panel2:#f0eee6;
   --line:#ded9c9; --gold:#b9860a; --gold2:#8a6406; --ember:#d9481f;
   --text:#241f14; --dim:#6b6455; --green:#0f9d68; --amber:#a9700b; --red:#c1372a;
+  --gold-tint:#b9860a22; --green-tint:#0f9d6822; --amber-tint:#a9700b22;
+  --red-tint:#c1372a22; --red-border-tint:#c1372a55; --red-hover-tint:#c1372a18;
 }
 *{box-sizing:border-box}
 body{background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;}
@@ -78,7 +82,7 @@ html[data-theme="light"] .sky{
 
 .nav-item{display:flex; align-items:center; gap:.65rem; padding:.6rem .85rem; border-radius:10px; color:var(--dim); font-weight:500; font-size:.92rem; cursor:pointer; transition:.15s;}
 .nav-item:hover{background:var(--panel2); color:var(--text);}
-.nav-item.active{background:linear-gradient(90deg, #f2b70522, transparent); color:var(--gold); box-shadow:inset 3px 0 0 var(--gold);}
+.nav-item.active{background:linear-gradient(90deg, var(--gold-tint), transparent); color:var(--gold); box-shadow:inset 3px 0 0 var(--gold);}
 .card{background:var(--panel); border:1px solid var(--line); border-radius:16px;}
 .input{background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:.55rem .75rem; color:var(--text); width:100%; font-size:.9rem;}
 .input:focus{outline:none; border-color:var(--gold);}
@@ -87,13 +91,13 @@ html[data-theme="light"] .sky{
 .btn-gold:hover{background:var(--gold2);}
 .btn-ghost{background:transparent; border-color:var(--line); color:var(--text);}
 .btn-ghost:hover{border-color:var(--gold); color:var(--gold);}
-.btn-danger{background:transparent; border-color:#f8717155; color:var(--red);}
-.btn-danger:hover{background:#f8717118;}
+.btn-danger{background:transparent; border-color:var(--red-border-tint); color:var(--red);}
+.btn-danger:hover{background:var(--red-hover-tint);}
 .badge{padding:.2rem .6rem; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.02em;}
-.badge-paid{background:#34d39922; color:var(--green);}
-.badge-pending{background:#fbbf2422; color:var(--amber);}
+.badge-paid{background:var(--green-tint); color:var(--green);}
+.badge-pending{background:var(--amber-tint); color:var(--amber);}
 .badge-partial{background:#38bdf822; color:#38bdf8;}
-.badge-cancelled{background:#f8717122; color:var(--red);}
+.badge-cancelled{background:var(--red-tint); color:var(--red);}
 table{width:100%; border-collapse:collapse; font-size:.88rem;}
 th{text-align:left; color:var(--dim); font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; padding:.6rem .75rem; border-bottom:1px solid var(--line);}
 td{padding:.7rem .75rem; border-bottom:1px solid var(--line);}
@@ -466,20 +470,32 @@ const Cache = { customers:[], products:[], invoices:[], settings:{}, profiles:[]
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
 function hideAllTopLevelViews(){
-  ['landingView','portalView','connectView','loginView','appShell'].forEach(id=>
-    document.getElementById(id).classList.add('hidden'));
+  // Inline style.display is used alongside the `hidden` class — belt-and-suspenders,
+  // because appShell also carries `md:flex` for its layout, and Tailwind's `hidden` +
+  // `md:flex` combo loses to `md:flex` on screens >=768px (both rules have equal
+  // specificity, but the md: variant comes later in the stylesheet) — without the
+  // inline override, the staff sidebar could render behind the customer portal on
+  // wider screens even while "hidden".
+  ['landingView','portalView','connectView','loginView','appShell'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.classList.add('hidden');
+    el.style.display = 'none';
+  });
 }
 function showLanding(){
   hideAllTopLevelViews();
-  document.getElementById('landingView').classList.remove('hidden');
+  const el = document.getElementById('landingView');
+  el.classList.remove('hidden'); el.style.display = '';
 }
 function showConnect(){
   hideAllTopLevelViews();
-  document.getElementById('connectView').classList.remove('hidden');
+  const el = document.getElementById('connectView');
+  el.classList.remove('hidden'); el.style.display = '';
 }
 function showLogin(){
   hideAllTopLevelViews();
-  document.getElementById('loginView').classList.remove('hidden');
+  const el = document.getElementById('loginView');
+  el.classList.remove('hidden'); el.style.display = '';
 }
 function showLoginError(msg){
   showLogin();
@@ -1518,20 +1534,22 @@ const Invoices = {
 
     // Pad the goods list with blank rows so the table fills the page the way a printed
     // Tally-style invoice does, and only spills to a new page once items genuinely don't fit.
-    // Prices are entered GST-inclusive; the printed invoice shows the back-calculated
-    // taxable (pre-tax) rate and amount per line, with GST broken out below as usual.
+    // Prices are entered GST-inclusive; the printed invoice shows Price (taxable value),
+    // GST (tax amount) and Final Amount (incl. GST) as separate columns per line, instead
+    // of a single Amount column plus a separate SGST/CGST breakdown further down.
     const exclRate = it => it.price / (1 + (it.tax/100));
-    const itemRows = inv.items.map((it,i)=>[
-      i+1, it.name, it.hsn||'-', `${it.qty} ${it.unit||''}`,
-      exclRate(it).toLocaleString('en-IN',{minimumFractionDigits:2}), it.unit||'-', rupee(it.qty*exclRate(it))
-    ]);
-    const half = inv.items.length ? inv.items[0].tax/2 : 0;
+    const itemRows = inv.items.map((it,i)=>{
+      const lineTaxable = it.qty*exclRate(it);
+      const lineFinal = it.qty*it.price;
+      const lineGst = lineFinal - lineTaxable;
+      return [i+1, it.name, it.hsn||'-', `${it.qty} ${it.unit||''}`, rupee(lineTaxable), rupee(lineGst), rupee(lineFinal)];
+    });
     const summaryRows = [
-      ['', {content:'SGST @ '+half.toFixed(2)+' %', styles:{halign:'right'}}, '', '', '', '', rupee(inv.taxTotal/2)],
-      ['', {content:'CGST @ '+half.toFixed(2)+' %', styles:{halign:'right'}}, '', '', '', '', rupee(inv.taxTotal/2)],
       ...(inv.roundOff ? [['', {content:'Round Off', styles:{halign:'right'}}, '', '', '', '', rupee(inv.roundOff)]] : []),
       [{content:'Total', colSpan:3, styles:{fontStyle:'bold', halign:'right'}},
-       {content:inv.items.reduce((s,it)=>s+it.qty,0)+'', styles:{fontStyle:'bold'}}, '', '',
+       {content:inv.items.reduce((s,it)=>s+it.qty,0)+'', styles:{fontStyle:'bold'}},
+       {content:rupee(inv.subtotal), styles:{fontStyle:'bold'}},
+       {content:rupee(inv.taxTotal), styles:{fontStyle:'bold'}},
        {content:rupee(inv.total), styles:{fontStyle:'bold'}}]
     ];
     const ROW_H = 6.2, HEAD_H = 7;
@@ -1548,11 +1566,11 @@ const Invoices = {
     doc.autoTable({
       startY: y,
       margin:{left:L, right:210-R, bottom:14},
-      head: [['Sl','Description of Goods','HSN/SAC','Qty','Rate','per','Amount']],
+      head: [['Sl','Description of Goods','HSN/SAC','Qty','Price','GST','Final Amount']],
       body: itemRows.concat(summaryRows),
       styles:{fontSize:8, textColor:[0,0,0], cellPadding:1.6},
       headStyles:{fillColor:[235,235,235], textColor:[0,0,0], fontStyle:'bold'},
-      columnStyles:{0:{cellWidth:10},1:{cellWidth:70},2:{cellWidth:24},3:{cellWidth:24},4:{cellWidth:22,halign:'right'},5:{cellWidth:14},6:{cellWidth:26,halign:'right'}},
+      columnStyles:{0:{cellWidth:10},1:{cellWidth:62},2:{cellWidth:22},3:{cellWidth:20},4:{cellWidth:24,halign:'right'},5:{cellWidth:24,halign:'right'},6:{cellWidth:28,halign:'right'}},
       theme:'plain',
       didDrawCell: goodsTableBorders
     });
@@ -1649,10 +1667,37 @@ const Invoices = {
   // Draws the full receipt onto `doc` starting at y=6, returns the final y position.
   // Called once on a tall scratch page just to measure, then again on a page sized to
   // fit exactly — so nothing (like the thank-you footer) ever gets cut off.
+  // Small vector doodles for the receipt footer — drawn with basic shapes rather than
+  // emoji, since jsPDF's standard fonts (Helvetica) have no color emoji glyphs and
+  // would print as blank boxes.
+  drawReceiptRocket(doc, cx, baseY, h){
+    const w = h*0.42, gold=[242,183,5], ember=[255,91,46];
+    doc.setFillColor(...gold);
+    doc.rect(cx-w/2, baseY-h*0.75, w, h*0.45, 'F');
+    doc.triangle(cx-w/2, baseY-h*0.75, cx+w/2, baseY-h*0.75, cx, baseY-h, 'F');
+    doc.setFillColor(...ember);
+    doc.triangle(cx-w/2, baseY-h*0.32, cx-w*0.9, baseY-h*0.05, cx-w/2, baseY-h*0.05, 'F');
+    doc.triangle(cx+w/2, baseY-h*0.32, cx+w*0.9, baseY-h*0.05, cx+w/2, baseY-h*0.05, 'F');
+    doc.triangle(cx-w*0.28, baseY-h*0.3, cx+w*0.28, baseY-h*0.3, cx, baseY+h*0.05, 'F');
+  },
+  drawReceiptFlowerPot(doc, cx, baseY, h){
+    const gold=[242,183,5], ember=[255,91,46];
+    doc.setFillColor(150,90,40);
+    doc.rect(cx-h*0.18, baseY-h*0.12, h*0.36, h*0.12, 'F');
+    const origin = {x:cx, y:baseY-h*0.12};
+    [-60,-40,-20,0,20,40,60].forEach((deg,i)=>{
+      const rad = deg*Math.PI/180, len = h*(0.5 + (i%2)*0.18);
+      const tipX = origin.x + Math.sin(rad)*len, tipY = origin.y - Math.cos(rad)*len;
+      const c = i%2 ? ember : gold;
+      doc.setDrawColor(...c); doc.setLineWidth(0.3);
+      doc.line(origin.x, origin.y, tipX, tipY);
+      doc.setFillColor(...c); doc.circle(tipX, tipY, 0.4, 'F');
+    });
+  },
+
   drawReceiptContent(doc, inv, cust, s, widthMM){
     const mX = 3, contentW = widthMM - mX*2;
     const rupee = n => 'Rs. ' + (Number(n)||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
-    const exclRate = it => it.price / (1 + (it.tax/100));
     let y = 6;
 
     doc.setFont('helvetica','bold'); doc.setFontSize(11);
@@ -1671,7 +1716,6 @@ const Invoices = {
     doc.text('Bill No: '+inv.invoiceNo, mX, y);
     doc.text(inv.date, widthMM-mX, y, {align:'right'}); y += 3.6;
     doc.text('Time: '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), mX, y); y += 3.6;
-    if(s.currentProfileName){ doc.text('Served by: '+s.currentProfileName, mX, y); y += 3.6; }
     doc.text('Customer: '+cust.name, mX, y); y += 3.6;
     if(cust.phone){ doc.text('Ph: '+cust.phone, mX, y); y += 3.6; }
     doc.line(mX,y,widthMM-mX,y); y += 3.5;
@@ -1680,40 +1724,30 @@ const Invoices = {
     doc.text('ITEMS', mX, y); y += 1;
     doc.line(mX,y,widthMM-mX,y); y += 3.2;
 
-    // Each item is drawn as its own block — name (wraps), then HSN/qty/rate detail
-    // (wraps), then the amount on its own right-aligned line. Nothing ever shares a
-    // row with the amount, so this can't collide regardless of paper width (56/58/
-    // 80/100mm) — narrower paper just makes items taller (more wrapped lines) instead
-    // of squeezing text together.
+    // Prices shown here are the plain, GST-inclusive selling price — no reverse tax
+    // math on the customer-facing receipt, so nothing needs explaining at the counter.
     inv.items.forEach((it,i)=>{
       doc.setFont('helvetica','normal'); doc.setFontSize(7);
       const nameLines = doc.splitTextToSize(`${i+1}. ${it.name}`, contentW);
       doc.text(nameLines, mX, y); y += nameLines.length*3.1;
 
       doc.setFontSize(6.3);
-      const detailLines = doc.splitTextToSize(`HSN ${it.hsn||'-'}  |  ${it.qty} ${it.unit||''} x ${rupee(exclRate(it))}`, contentW);
+      const detailLines = doc.splitTextToSize(`${it.qty} ${it.unit||''} x ${rupee(it.price)}`, contentW);
       doc.text(detailLines, mX, y); y += detailLines.length*2.6;
 
       doc.setFont('helvetica','bold'); doc.setFontSize(7);
-      doc.text(rupee(it.qty*exclRate(it)), widthMM-mX, y, {align:'right'});
+      doc.text(rupee(it.qty*it.price), widthMM-mX, y, {align:'right'});
       y += 3.6;
     });
 
     doc.line(mX,y,widthMM-mX,y); y += 3.8;
-    // Bold, slightly larger summary line — stands out from the item detail text above.
     doc.setFont('helvetica','bold'); doc.setFontSize(8);
     const totalQty = inv.items.reduce((s2,it)=>s2+it.qty,0);
-    doc.text(`Items: ${inv.items.length}   Qty: ${totalQty}`, mX, y); y += 4.2;
+    doc.text(`Items: ${inv.items.length}   Qty: ${totalQty}`, mX, y); y += 4.4;
     doc.setFont('helvetica','normal'); doc.setFontSize(7);
-
-    doc.text('Taxable Value', mX, y); doc.text(rupee(inv.subtotal), widthMM-mX, y, {align:'right'}); y += 3.4;
-    const half = inv.items.length ? inv.items[0].tax/2 : 0;
-    doc.text(`CGST @ ${half.toFixed(2)}%`, mX, y); doc.text(rupee(inv.taxTotal/2), widthMM-mX, y, {align:'right'}); y += 3.4;
-    doc.text(`SGST @ ${half.toFixed(2)}%`, mX, y); doc.text(rupee(inv.taxTotal/2), widthMM-mX, y, {align:'right'}); y += 3.4;
     if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), widthMM-mX, y, {align:'right'}); y += 3.4; }
     doc.line(mX,y,widthMM-mX,y); y += 4.5;
 
-    // Bold, bigger TOTAL line — the standout number on the receipt.
     doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
     doc.text('TOTAL', mX, y); doc.text(rupee(inv.total), widthMM-mX, y, {align:'right'}); y += 5.2;
     doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
@@ -1728,8 +1762,21 @@ const Invoices = {
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
     doc.text('Thank you, visit again!', widthMM/2, y, {align:'center'}); y += 3.6;
     doc.setFont('helvetica','normal'); doc.setFontSize(6);
-    doc.text('Goods once sold cannot be taken back', widthMM/2, y, {align:'center'}); y += 3;
-    doc.text('Computer generated receipt', widthMM/2, y, {align:'center'}); y += 3;
+    doc.text('Goods once sold cannot be taken back', widthMM/2, y, {align:'center'}); y += 4.5;
+
+    // Festive footer flourish
+    doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.setTextColor(217,72,31);
+    doc.text('Happy Diwali!', widthMM/2, y, {align:'center'});
+    doc.setTextColor(0,0,0);
+    const iconBaseY = y + 8;
+    this.drawReceiptRocket(doc, widthMM/2 - contentW*0.26, iconBaseY, 7);
+    this.drawReceiptFlowerPot(doc, widthMM/2 + contentW*0.26, iconBaseY, 7);
+    y = iconBaseY + 3;
+    doc.setFontSize(6); doc.setTextColor(90,90,90);
+    doc.text('Computer generated receipt', widthMM/2, y, {align:'center'});
+    doc.setTextColor(0,0,0);
+    y += 3;
 
     return y;
   },
@@ -1737,7 +1784,7 @@ const Invoices = {
   buildReceiptDoc(id){
     const inv = this.list().find(x=>x.id===id);
     const cust = Customers.list().find(c=>c.id===inv.customerId) || {name:'Walk-in Customer'};
-    const s = {...Cache.settings, currentProfileName: currentProfile?.name};
+    const s = Cache.settings;
     const widthMM = Number(s.receiptWidth) || 80;
     const { jsPDF } = window.jspdf;
 
@@ -1867,7 +1914,8 @@ const CustomerPortal = {
 
   open(){
     hideAllTopLevelViews();
-    document.getElementById('portalView').classList.remove('hidden');
+    const pv = document.getElementById('portalView');
+    pv.classList.remove('hidden'); pv.style.display = '';
     this.showCatalog();
     if(!this._productsUnsub){
       const listEl = document.getElementById('portalProductList');
@@ -2242,7 +2290,8 @@ document.addEventListener('click', e=>{
    ============================================================ */
 function bootApp(){
   hideAllTopLevelViews();
-  document.getElementById('appShell').classList.remove('hidden');
+  const shell = document.getElementById('appShell');
+  shell.classList.remove('hidden'); shell.style.display = '';
   document.getElementById('sidebarUserName').textContent = currentProfile.name || currentProfile.email;
   document.getElementById('sidebarUserRole').textContent = currentProfile.role;
   document.querySelectorAll('[data-admin-only]').forEach(el=> el.style.display = Auth.isAdmin() ? '' : 'none');
