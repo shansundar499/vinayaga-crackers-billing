@@ -445,7 +445,13 @@ tr:last-child td{border-bottom:none;}
   <div id="modalBox" class="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 md:p-6"></div>
 </div>
 
-<div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-panel2 border border-line text-sm px-4 py-2.5 rounded-xl z-[60] shadow-lg"></div>
+<!-- Second, independent modal layer — stacks on top of the main modal (e.g. the
+     product picker opening while an invoice is being edited) without disturbing it. -->
+<div id="pickerModalBackdrop" class="modal-backdrop hidden fixed inset-0 z-[65] flex items-center justify-center p-4">
+  <div id="pickerModalBox" class="card w-full max-w-lg max-h-[85vh] overflow-y-auto p-5"></div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-panel2 border border-line text-sm px-4 py-2.5 rounded-xl z-[75] shadow-lg"></div>
 
 <script>
 /* ============================================================
@@ -780,6 +786,13 @@ function openModal(html){
 }
 function closeModal(){ document.getElementById('modalBackdrop').classList.add('hidden'); }
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') closeModal(); });
+
+function openPicker(html){
+  document.getElementById('pickerModalBox').innerHTML = html;
+  document.getElementById('pickerModalBackdrop').classList.remove('hidden');
+}
+function closePicker(){ document.getElementById('pickerModalBackdrop').classList.add('hidden'); }
+document.getElementById('pickerModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='pickerModalBackdrop') closePicker(); });
 
 /* ============================================================
    AUTH
@@ -1200,6 +1213,14 @@ const Invoices = {
           </div>
         </div>
 
+        <!-- Running total — sticky so it stays visible while scrolling a long item list -->
+        <div class="card p-3 mb-3 sticky top-0 z-10" style="background:var(--panel);">
+          <div class="flex justify-between text-sm"><span class="text-dim">Items Total</span><span id="calcItemsTotal">₹0</span></div>
+          <div class="flex justify-between text-sm" id="calcDiscountRow" style="display:none;"><span class="text-dim">Discount</span><span id="calcDiscount" class="text-ember">−₹0</span></div>
+          <div class="flex justify-between text-sm" id="calcDeliveryRow" style="display:none;"><span class="text-dim">Delivery / Packing</span><span id="calcDelivery">+₹0</span></div>
+          <div class="flex justify-between font-bold text-gold text-base pt-1.5 mt-1 border-t border-line"><span>Total</span><span id="calcTotal">₹0</span></div>
+        </div>
+
         <details class="mb-3 card p-3">
           <summary class="text-xs text-dim cursor-pointer select-none">Transport / reference details (optional — printed on invoice)</summary>
           <div class="grid md:grid-cols-3 gap-2 mt-3">
@@ -1217,19 +1238,27 @@ const Invoices = {
 
         <div class="flex items-center justify-between mb-2">
           <label class="text-xs text-dim">Items</label>
-          <button type="button" class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.addItemRow()">+ Add item</button>
+          <div class="flex gap-1">
+            <button type="button" class="btn-gold btn !px-2 !py-1 text-xs" onclick="Invoices.openItemPicker()">📋 Browse Products</button>
+            <button type="button" class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.addItemRow()">+ Add item</button>
+          </div>
         </div>
         <div id="itemRows" class="space-y-2 mb-2">
           ${items.length ? items.map(rowHtml).join('') : rowHtml({qty:1}, 0)}
         </div>
         <div class="text-right text-xs text-dim mb-4">Qty · Price (incl. GST) · GST%</div>
 
-        <div class="flex justify-end">
-          <div class="w-full max-w-xs space-y-1 text-sm">
-            <div class="flex justify-between"><span class="text-dim">Taxable Value</span><span id="calcSubtotal">₹0</span></div>
-            <div class="flex justify-between"><span class="text-dim">GST (CGST+SGST, incl. in price)</span><span id="calcTax">₹0</span></div>
-            <div class="flex justify-between font-bold text-gold text-base"><span>Total</span><span id="calcTotal">₹0</span></div>
+        <div class="grid md:grid-cols-2 gap-2 mb-2">
+          <div><label class="text-xs text-dim">Discount</label>
+            <div class="flex gap-1 mt-1">
+              <input class="input" id="iDiscountValue" type="number" step="0.01" min="0" value="${inv?(inv.discountValue||0):0}" placeholder="0">
+              <select class="input !w-20" id="iDiscountType">
+                <option value="flat" ${(!inv||inv.discountType!=='percent')?'selected':''}>₹</option>
+                <option value="percent" ${inv&&inv.discountType==='percent'?'selected':''}>%</option>
+              </select>
+            </div>
           </div>
+          <div><label class="text-xs text-dim">Delivery / Packing Charge (₹)</label><input class="input mt-1" id="iDeliveryCharge" type="number" step="0.01" min="0" value="${inv?(inv.deliveryCharge||0):0}"></div>
         </div>
 
         <div class="grid md:grid-cols-4 gap-2 mt-4">
@@ -1304,6 +1333,9 @@ const Invoices = {
         });
       });
     }
+    ['iDiscountValue','iDiscountType','iDeliveryCharge'].forEach(id=>{
+      document.getElementById(id).addEventListener('input', ()=>Invoices.recalc());
+    });
     Invoices.recalc();
 
     document.getElementById('invForm').addEventListener('submit', async e=>{
@@ -1320,10 +1352,13 @@ const Invoices = {
         };
       }).filter(it=>it.productId);
       if(!items.length){ toast('Add at least one item'); return; }
-      const {subtotal, taxTotal, total, roundOff} = Invoices.computeTotals(items);
+      const discount = {type: iDiscountType.value, value: parseFloat(iDiscountValue.value)||0};
+      const deliveryCharge = parseFloat(iDeliveryCharge.value)||0;
+      const {itemsTotal, discountAmt, subtotal, taxTotal, total, roundOff} = Invoices.computeTotals(items, discount, deliveryCharge);
       const data = {
         invoiceNo: iNumber.value, date: iDate.value, customerId: iCustomer.value,
-        items, subtotal, taxTotal, total, roundOff,
+        items, itemsTotal, discountType: discount.type, discountValue: discount.value, discountAmt,
+        deliveryCharge, subtotal, taxTotal, total, roundOff,
         status: iStatus.value, paymentType: iPaymentType.value, paidAmount: parseFloat(iPaid.value)||0, notes: iNotes.value,
         ref: {
           deliveryNote: iDeliveryNote.value, paymentMode: iPaymentMode.value, refNo: iRefNo.value,
@@ -1405,18 +1440,29 @@ const Invoices = {
 
   // Product prices are entered GST-inclusive, so each line's taxable value and tax
   // are backed out of the inclusive amount rather than added on top of it.
-  computeTotals(items){
-    let subtotal=0, taxTotal=0;
+  // Product prices are entered GST-inclusive. GST is still backed out internally
+  // (subtotal/taxTotal) purely for the in-app Tax Report — it's never shown on the
+  // printed PDF or receipt, which only ever display the plain price the customer pays.
+  computeTotals(items, discount={type:'flat',value:0}, deliveryCharge=0){
+    let subtotal=0, taxTotal=0, itemsTotal=0;
     items.forEach(it=>{
       const lineIncl = it.qty*it.price;
+      itemsTotal += lineIncl;
       const lineExcl = lineIncl / (1 + (it.tax/100));
       subtotal += lineExcl;
       taxTotal += (lineIncl - lineExcl);
     });
-    const rawTotal = subtotal + taxTotal;
+    const discountAmt = discount && discount.value
+      ? (discount.type === 'percent' ? itemsTotal * (discount.value/100) : discount.value)
+      : 0;
+    const afterDiscount = Math.max(0, itemsTotal - discountAmt);
+    const rawTotal = afterDiscount + (deliveryCharge||0);
     const total = Math.round(rawTotal);
     const roundOff = +(total - rawTotal).toFixed(2);
-    return {subtotal:+subtotal.toFixed(2), taxTotal:+taxTotal.toFixed(2), roundOff, total};
+    return {
+      itemsTotal:+itemsTotal.toFixed(2), discountAmt:+discountAmt.toFixed(2), deliveryCharge:+(deliveryCharge||0).toFixed(2),
+      subtotal:+subtotal.toFixed(2), taxTotal:+taxTotal.toFixed(2), roundOff, total
+    };
   },
 
   recalc(){
@@ -1426,10 +1472,57 @@ const Invoices = {
       price: parseFloat(r.querySelector('.item-price').value)||0,
       tax: parseFloat(r.querySelector('.item-tax').value)||0
     }));
-    const {subtotal, taxTotal, total} = Invoices.computeTotals(items);
-    document.getElementById('calcSubtotal').textContent = fmt(subtotal);
-    document.getElementById('calcTax').textContent = fmt(taxTotal);
+    const discount = {type: document.getElementById('iDiscountType').value, value: parseFloat(document.getElementById('iDiscountValue').value)||0};
+    const deliveryCharge = parseFloat(document.getElementById('iDeliveryCharge').value)||0;
+    const {itemsTotal, discountAmt, total} = Invoices.computeTotals(items, discount, deliveryCharge);
+    document.getElementById('calcItemsTotal').textContent = fmt(itemsTotal);
+    const discRow = document.getElementById('calcDiscountRow');
+    discRow.style.display = discountAmt > 0 ? '' : 'none';
+    document.getElementById('calcDiscount').textContent = '−' + fmt(discountAmt);
+    const delRow = document.getElementById('calcDeliveryRow');
+    delRow.style.display = deliveryCharge > 0 ? '' : 'none';
+    document.getElementById('calcDelivery').textContent = '+' + fmt(deliveryCharge);
     document.getElementById('calcTotal').textContent = fmt(total);
+  },
+
+  openItemPicker(){
+    const render = (q)=>{
+      const term = (q||'').trim().toLowerCase();
+      const list = Products.list().filter(p=> !term || p.name.toLowerCase().includes(term) || (p.sku||'').toLowerCase().includes(term) || (p.hsn||'').toLowerCase().includes(term));
+      document.getElementById('pickerResults').innerHTML = list.length ? list.map(p=>`
+        <div class="card p-2.5 flex items-center justify-between gap-2 mb-2">
+          <div class="min-w-0 flex items-center gap-2">
+            ${p.imageUrl?`<img src="${p.imageUrl}" class="w-9 h-9 rounded-md object-cover shrink-0">`:''}
+            <div class="min-w-0"><p class="font-medium text-sm truncate">${p.name}</p><p class="text-dim text-xs">${fmt(p.price)}${p.unit?(' / '+p.unit):''} · Stock ${p.stock}</p></div>
+          </div>
+          <button type="button" class="btn btn-gold !px-3 !py-1.5 text-xs shrink-0" onclick="Invoices.addFromPicker('${p.id}')">+ Add</button>
+        </div>`).join('') : `<p class="text-dim text-sm p-2">No matches</p>`;
+    };
+    openPicker(`
+      <h3 class="font-semibold text-lg mb-3">Browse Products</h3>
+      <input class="input mb-3" id="pickerSearch" placeholder="Search by name, SKU or HSN…" autofocus>
+      <div id="pickerResults"></div>
+      <button class="btn-ghost btn w-full mt-2" type="button" onclick="closePicker()">Done</button>
+    `);
+    document.getElementById('pickerSearch').addEventListener('input', e=>render(e.target.value));
+    render('');
+  },
+
+  addFromPicker(productId){
+    const prod = Products.list().find(p=>p.id===productId);
+    if(!prod) return;
+    const rows = [...document.querySelectorAll('.item-row')];
+    const existingRow = rows.find(r=> r.querySelector('.item-product').value === productId);
+    if(existingRow){
+      const qtyInput = existingRow.querySelector('.item-qty');
+      qtyInput.value = (parseFloat(qtyInput.value)||0) + 1;
+    } else {
+      const emptyRow = rows.find(r=> !r.querySelector('.item-product').value);
+      const targetRow = emptyRow || (Invoices.addItemRow(), document.querySelector('#itemRows .item-row:last-child'));
+      Invoices.selectRowProduct(targetRow.querySelector('.product-picker'), productId);
+    }
+    Invoices.recalc();
+    toast(`Added ${prod.name}`);
   },
 
   cancel(id){
@@ -1452,7 +1545,7 @@ const Invoices = {
 
     doc.setDrawColor(0); doc.setLineWidth(0.2);
     doc.setFont('helvetica','bold'); doc.setFontSize(13);
-    doc.text('TAX INVOICE', 105, y+5, {align:'center'});
+    doc.text('INVOICE', 105, y+5, {align:'center'});
     doc.setFont('helvetica','normal'); doc.setFontSize(8);
     doc.text(`Printed on ${new Date().toLocaleString('en-IN')}`, R, y+5, {align:'right'});
     y += 9;
@@ -1533,30 +1626,24 @@ const Invoices = {
     };
 
     // Pad the goods list with blank rows so the table fills the page the way a printed
-    // Tally-style invoice does, and only spills to a new page once items genuinely don't fit.
-    // Prices are entered GST-inclusive; the printed invoice shows Price (taxable value),
-    // GST (tax amount) and Final Amount (incl. GST) as separate columns per line, instead
-    // of a single Amount column plus a separate SGST/CGST breakdown further down.
-    const exclRate = it => it.price / (1 + (it.tax/100));
-    const itemRows = inv.items.map((it,i)=>{
-      const lineTaxable = it.qty*exclRate(it);
-      const lineFinal = it.qty*it.price;
-      const lineGst = lineFinal - lineTaxable;
-      return [i+1, it.name, it.hsn||'-', `${it.qty} ${it.unit||''}`, rupee(lineTaxable), rupee(lineGst), rupee(lineFinal)];
-    });
+    // invoice does, and only spills to a new page once items genuinely don't fit.
+    // No GST is shown anywhere on this document — just plain price x qty = amount,
+    // matching the receipt. A separate breakdown below the table (if applicable) covers
+    // any invoice-level discount and delivery/packing charge before the grand total.
+    const itemRows = inv.items.map((it,i)=>[
+      i+1, it.name, `${it.qty} ${it.unit||''}`, rupee(it.price), rupee(it.qty*it.price)
+    ]);
+    const itemsTotalForOldInvoices = inv.itemsTotal != null ? inv.itemsTotal : inv.total;
     const summaryRows = [
-      ...(inv.roundOff ? [['', {content:'Round Off', styles:{halign:'right'}}, '', '', '', '', rupee(inv.roundOff)]] : []),
-      [{content:'Total', colSpan:3, styles:{fontStyle:'bold', halign:'right'}},
-       {content:inv.items.reduce((s,it)=>s+it.qty,0)+'', styles:{fontStyle:'bold'}},
-       {content:rupee(inv.subtotal), styles:{fontStyle:'bold'}},
-       {content:rupee(inv.taxTotal), styles:{fontStyle:'bold'}},
-       {content:rupee(inv.total), styles:{fontStyle:'bold'}}]
+      [{content:'Total', colSpan:2, styles:{fontStyle:'bold', halign:'right'}},
+       {content:inv.items.reduce((s,it)=>s+it.qty,0)+'', styles:{fontStyle:'bold'}}, '',
+       {content:rupee(itemsTotalForOldInvoices), styles:{fontStyle:'bold'}}]
     ];
     const ROW_H = 6.2, HEAD_H = 7;
-    const trailerReserve = 79; // space needed below the table for words/HSN summary/status/bank/signature
+    const trailerReserve = 68; // space needed below the table for words/discount-delivery/status/bank/signature
     const availableForTable = (287 - trailerReserve) - y;
     const contentRows = itemRows.length + summaryRows.length;
-    const blankRow = ['', '', '', '', '', '', ''];
+    const blankRow = ['', '', '', '', ''];
     let blanksNeeded = Math.floor((availableForTable - HEAD_H - contentRows*ROW_H) / ROW_H);
     if (blanksNeeded > 0 && blanksNeeded < 40) {
       itemRows.push(...Array.from({length: blanksNeeded}, () => blankRow));
@@ -1566,51 +1653,46 @@ const Invoices = {
     doc.autoTable({
       startY: y,
       margin:{left:L, right:210-R, bottom:14},
-      head: [['Sl','Description of Goods','HSN/SAC','Qty','Price','GST','Final Amount']],
+      head: [['Sl','Description of Goods','Qty','Rate','Amount']],
       body: itemRows.concat(summaryRows),
       styles:{fontSize:8, textColor:[0,0,0], cellPadding:1.6},
       headStyles:{fillColor:[235,235,235], textColor:[0,0,0], fontStyle:'bold'},
-      columnStyles:{0:{cellWidth:10},1:{cellWidth:62},2:{cellWidth:22},3:{cellWidth:20},4:{cellWidth:24,halign:'right'},5:{cellWidth:24,halign:'right'},6:{cellWidth:28,halign:'right'}},
+      columnStyles:{0:{cellWidth:10},1:{cellWidth:90},2:{cellWidth:24},3:{cellWidth:30,halign:'right'},4:{cellWidth:36,halign:'right'}},
       theme:'plain',
       didDrawCell: goodsTableBorders
     });
-    y = doc.lastAutoTable.finalY + 4;
+    y = doc.lastAutoTable.finalY + 5;
+
+    // --- Discount / delivery / grand total breakdown (only shown if applicable) ---
+    doc.setFontSize(9);
+    if(inv.discountAmt){
+      doc.setFont('helvetica','normal');
+      doc.text(`Discount${inv.discountType==='percent'&&inv.discountValue?' ('+inv.discountValue+'%)':''}:`, L+2, y);
+      doc.text('- '+rupee(inv.discountAmt), R-2, y, {align:'right'});
+      y += 5.5;
+    }
+    if(inv.deliveryCharge){
+      doc.setFont('helvetica','normal');
+      doc.text('Delivery / Packing Charge:', L+2, y);
+      doc.text(rupee(inv.deliveryCharge), R-2, y, {align:'right'});
+      y += 5.5;
+    }
+    if(inv.roundOff){
+      doc.setFont('helvetica','normal');
+      doc.text('Round Off:', L+2, y);
+      doc.text(rupee(inv.roundOff), R-2, y, {align:'right'});
+      y += 5.5;
+    }
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('GRAND TOTAL:', L+2, y);
+    doc.text(rupee(inv.total), R-2, y, {align:'right'});
+    y += 8;
 
     // --- Amount in words ---
     doc.setFontSize(8); doc.setFont('helvetica','bold');
     doc.text('Amount Chargeable (in words):', L+2, y);
     doc.setFont('helvetica','normal');
     doc.text(amountInWords(inv.total), L+62, y);
-    y += 8;
-
-    // --- HSN tax summary table ---
-    const hsnMap = {};
-    inv.items.forEach(it=>{
-      const key = it.hsn||'-';
-      if(!hsnMap[key]) hsnMap[key] = {hsn:key, taxable:0, tax:it.tax};
-      hsnMap[key].taxable += it.qty*exclRate(it);
-    });
-    doc.autoTable({
-      startY: y,
-      margin:{left:L, right:210-R},
-      head: [['HSN/SAC','Taxable Value','CGST Rate','CGST Amt','SGST Rate','SGST Amt','Total Tax']],
-      body: Object.values(hsnMap).map(h=>{
-        const half = h.tax/2, taxAmt = h.taxable*(half/100);
-        return [h.hsn, rupee(h.taxable), half.toFixed(2)+'%', rupee(taxAmt), half.toFixed(2)+'%', rupee(taxAmt), rupee(taxAmt*2)];
-      }).concat([[{content:'Total',styles:{fontStyle:'bold'}}, {content:rupee(inv.subtotal),styles:{fontStyle:'bold'}}, '',
-        {content:rupee(inv.taxTotal/2),styles:{fontStyle:'bold'}}, '', {content:rupee(inv.taxTotal/2),styles:{fontStyle:'bold'}},
-        {content:rupee(inv.taxTotal),styles:{fontStyle:'bold'}}]]),
-      styles:{fontSize:7.5, lineColor:[0,0,0], lineWidth:0.15, textColor:[0,0,0], cellPadding:1.6},
-      headStyles:{fillColor:[235,235,235], textColor:[0,0,0], fontStyle:'bold', lineWidth:0.15},
-      columnStyles:{0:{cellWidth:26},1:{cellWidth:34},2:{cellWidth:20},3:{cellWidth:26},4:{cellWidth:20},5:{cellWidth:26},6:{cellWidth:38}},
-      theme:'grid'
-    });
-    y = doc.lastAutoTable.finalY + 4;
-
-    doc.setFontSize(8); doc.setFont('helvetica','bold');
-    doc.text('Tax Amount (in words):', L+2, y);
-    doc.setFont('helvetica','normal');
-    doc.text(amountInWords(inv.taxTotal), L+45, y);
     y += 8;
 
     // --- Payment status ---
@@ -1667,9 +1749,27 @@ const Invoices = {
   // Draws the full receipt onto `doc` starting at y=6, returns the final y position.
   // Called once on a tall scratch page just to measure, then again on a page sized to
   // fit exactly — so nothing (like the thank-you footer) ever gets cut off.
-  // Small vector doodles for the receipt footer — drawn with basic shapes rather than
-  // emoji, since jsPDF's standard fonts (Helvetica) have no color emoji glyphs and
-  // would print as blank boxes.
+  // Small vector doodles for the receipt — drawn with basic shapes rather than emoji,
+  // since jsPDF's standard fonts (Helvetica) have no color emoji glyphs and would
+  // print as blank boxes.
+  drawReceiptSparkBorder(doc, mX, widthMM, y){
+    const gold=[242,183,5], ember=[255,91,46];
+    const n = Math.max(5, Math.floor((widthMM-mX*2)/7));
+    const step = (widthMM-mX*2)/(n-1);
+    for(let i=0;i<n;i++){
+      const x = mX + step*i, c = i%2 ? ember : gold;
+      doc.setDrawColor(...c); doc.setLineWidth(0.3);
+      doc.line(x-0.9, y, x+0.9, y);
+      doc.line(x, y-0.9, x, y+0.9);
+    }
+  },
+  drawReceiptSpark(doc, x, y, size, color){
+    doc.setDrawColor(...color); doc.setLineWidth(0.3);
+    doc.line(x-size, y, x+size, y);
+    doc.line(x, y-size, x, y+size);
+    doc.line(x-size*0.7, y-size*0.7, x+size*0.7, y+size*0.7);
+    doc.line(x-size*0.7, y+size*0.7, x+size*0.7, y-size*0.7);
+  },
   drawReceiptRocket(doc, cx, baseY, h){
     const w = h*0.42, gold=[242,183,5], ember=[255,91,46];
     doc.setFillColor(...gold);
@@ -1707,9 +1807,10 @@ const Invoices = {
     if(s.phone){ doc.text('Ph: '+s.phone, widthMM/2, y, {align:'center'}); y += 3.2; }
     if(s.gstin){ doc.text('GSTIN/UIN: '+s.gstin, widthMM/2, y, {align:'center'}); y += 3.2; }
     if(s.stateName){ doc.text(`State: ${s.stateName}${s.stateCode?', Code: '+s.stateCode:''}`, widthMM/2, y, {align:'center'}); y += 3.2; }
-    y += 0.5;
+    y += 1.5;
+    this.drawReceiptSparkBorder(doc, mX, widthMM, y); y += 3;
     doc.setFont('helvetica','bold'); doc.setFontSize(8);
-    doc.text('TAX INVOICE', widthMM/2, y, {align:'center'}); y += 3.8;
+    doc.text('INVOICE', widthMM/2, y, {align:'center'}); y += 3.8;
     doc.setLineDashPattern([0.6,0.6],0); doc.line(mX,y,widthMM-mX,y); doc.setLineDashPattern([],0); y += 3.2;
 
     doc.setFont('helvetica','normal'); doc.setFontSize(7);
@@ -1745,6 +1846,14 @@ const Invoices = {
     const totalQty = inv.items.reduce((s2,it)=>s2+it.qty,0);
     doc.text(`Items: ${inv.items.length}   Qty: ${totalQty}`, mX, y); y += 4.4;
     doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    if(inv.discountAmt){
+      doc.text(`Discount${inv.discountType==='percent'&&inv.discountValue?' ('+inv.discountValue+'%)':''}`, mX, y);
+      doc.text('- '+rupee(inv.discountAmt), widthMM-mX, y, {align:'right'}); y += 3.4;
+    }
+    if(inv.deliveryCharge){
+      doc.text('Delivery / Packing', mX, y);
+      doc.text(rupee(inv.deliveryCharge), widthMM-mX, y, {align:'right'}); y += 3.4;
+    }
     if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), widthMM-mX, y, {align:'right'}); y += 3.4; }
     doc.line(mX,y,widthMM-mX,y); y += 4.5;
 
@@ -1765,14 +1874,20 @@ const Invoices = {
     doc.text('Goods once sold cannot be taken back', widthMM/2, y, {align:'center'}); y += 4.5;
 
     // Festive footer flourish
-    doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    this.drawReceiptSparkBorder(doc, mX, widthMM, y); y += 4;
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
     doc.setTextColor(217,72,31);
-    doc.text('Happy Diwali!', widthMM/2, y, {align:'center'});
+    const diwaliText = 'Happy Diwali!';
+    const textW = doc.getTextWidth(diwaliText);
+    doc.text(diwaliText, widthMM/2, y, {align:'center'});
+    this.drawReceiptSpark(doc, widthMM/2 - textW/2 - 4, y-1.3, 1.6, [242,183,5]);
+    this.drawReceiptSpark(doc, widthMM/2 + textW/2 + 4, y-1.3, 1.6, [255,91,46]);
     doc.setTextColor(0,0,0);
-    const iconBaseY = y + 8;
-    this.drawReceiptRocket(doc, widthMM/2 - contentW*0.26, iconBaseY, 7);
-    this.drawReceiptFlowerPot(doc, widthMM/2 + contentW*0.26, iconBaseY, 7);
+    const iconBaseY = y + 9;
+    this.drawReceiptRocket(doc, widthMM/2 - contentW*0.28, iconBaseY, 8);
+    this.drawReceiptFlowerPot(doc, widthMM/2 + contentW*0.28, iconBaseY, 8);
     y = iconBaseY + 3;
+    this.drawReceiptSparkBorder(doc, mX, widthMM, y); y += 3.5;
     doc.setFontSize(6); doc.setTextColor(90,90,90);
     doc.text('Computer generated receipt', widthMM/2, y, {align:'center'});
     doc.setTextColor(0,0,0);
