@@ -1928,7 +1928,7 @@ const Invoices = {
     doc.autoTable({
       startY: y,
       margin:{left:mX, right:mX},
-      head: [['Sl','Product',{content:'Amount', styles:{halign:'right'}}]],
+      head: [['Sl','Product',{content:'Amount', styles:{halign:'left'}}]],
       body: inv.items.map((it,i)=>[
         i+1,
         `${it.name}\n${it.qty} ${it.unit||''} x ${rupee(it.price)}`,
@@ -1939,7 +1939,7 @@ const Invoices = {
       columnStyles:{
         0:{cellWidth:contentW*0.11},
         1:{cellWidth:contentW*0.57},
-        2:{cellWidth:contentW*0.32, halign:'right', fontStyle:'bold'}
+        2:{cellWidth:contentW*0.32, halign:'left', fontStyle:'bold'}
       },
       theme:'plain',
       didDrawCell: data=>{
