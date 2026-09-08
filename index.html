@@ -1914,27 +1914,36 @@ const Invoices = {
     if(cust.phone){ doc.text('Ph: '+cust.phone, mX, y); y += 3.6; }
     doc.line(mX,y,widthMM-mX,y); y += 3.5;
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
-    doc.text('ITEMS', mX, y); y += 1;
-    doc.line(mX,y,widthMM-mX,y); y += 3.2;
-
-    // Prices shown here are the plain, GST-inclusive selling price — no reverse tax
-    // math on the customer-facing receipt, so nothing needs explaining at the counter.
-    inv.items.forEach((it,i)=>{
-      doc.setFont('helvetica','normal'); doc.setFontSize(7);
-      const nameLines = doc.splitTextToSize(`${i+1}. ${it.name}`, contentW);
-      doc.text(nameLines, mX, y); y += nameLines.length*3.1;
-
-      doc.setFontSize(6.3);
-      const detailLines = doc.splitTextToSize(`${it.qty} ${it.unit||''} x ${rupee(it.price)}`, contentW);
-      doc.text(detailLines, mX, y); y += detailLines.length*2.6;
-
-      doc.setFont('helvetica','bold'); doc.setFontSize(7);
-      doc.text(rupee(it.qty*it.price), widthMM-mX, y, {align:'right'});
-      y += 3.6;
+    // Sl / Product (name + qty x price) / Amount — a real 3-column table via autoTable,
+    // which wraps text safely within each column regardless of receipt width, instead
+    // of manually positioned text that could collide at narrow widths.
+    doc.autoTable({
+      startY: y,
+      margin:{left:mX, right:mX},
+      head: [['Sl','Product','Amount']],
+      body: inv.items.map((it,i)=>[
+        i+1,
+        `${it.name}\n${it.qty} ${it.unit||''} x ${rupee(it.price)}`,
+        rupee(it.qty*it.price)
+      ]),
+      styles:{fontSize:6.5, cellPadding:1, textColor:[0,0,0], lineWidth:0},
+      headStyles:{fontSize:6.8, fontStyle:'bold', fillColor:[255,255,255], textColor:[0,0,0]},
+      columnStyles:{
+        0:{cellWidth:contentW*0.11},
+        1:{cellWidth:contentW*0.57},
+        2:{cellWidth:contentW*0.32, halign:'right', fontStyle:'bold'}
+      },
+      theme:'plain',
+      didDrawCell: data=>{
+        // Header underline, and a closing line under the last item row — no lines
+        // between individual items, matching the rest of the receipt's plain style.
+        if(data.row.section==='head' || (data.row.section==='body' && data.row.index===data.table.body.length-1)){
+          doc.setDrawColor(0); doc.setLineWidth(0.15);
+          doc.line(data.cell.x, data.cell.y+data.cell.height, data.cell.x+data.cell.width, data.cell.y+data.cell.height);
+        }
+      }
     });
-
-    doc.line(mX,y,widthMM-mX,y); y += 3.8;
+    y = doc.lastAutoTable.finalY + 3.8;
     doc.setFont('helvetica','bold'); doc.setFontSize(8);
     const totalQty = inv.items.reduce((s2,it)=>s2+it.qty,0);
     doc.text(`Items: ${inv.items.length}   Qty: ${totalQty}`, mX, y); y += 4.4;
