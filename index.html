@@ -1952,6 +1952,9 @@ const Invoices = {
       }
     });
     y = doc.lastAutoTable.finalY + 3.8;
+    // Same left x-position as the item table's Amount column, so every rupee figure
+    // on the receipt — item amounts and this summary block — lines up in one column.
+    const amountColX = mX + contentW*0.68 + 1; // +1mm to match the item table's own cell padding
     doc.setFont('helvetica','bold'); doc.setFontSize(8);
     const totalQty = inv.items.reduce((s2,it)=>s2+it.qty,0);
     doc.text(`Items: ${inv.items.length}   Qty: ${totalQty}`, mX, y); y += 4.4;
@@ -1959,21 +1962,21 @@ const Invoices = {
     const itemsTotalForOldReceipts = inv.itemsTotal != null ? inv.itemsTotal : inv.total;
     if(inv.discountAmt || inv.deliveryCharge){
       doc.text('Items Total', mX, y);
-      doc.text(rupee(itemsTotalForOldReceipts), widthMM-mX, y, {align:'right'}); y += 3.4;
+      doc.text(rupee(itemsTotalForOldReceipts), amountColX, y); y += 3.4;
     }
     if(inv.discountAmt){
       doc.text(`Discount${inv.discountType==='percent'&&inv.discountValue?' ('+inv.discountValue+'%)':''}`, mX, y);
-      doc.text('- '+rupee(inv.discountAmt), widthMM-mX, y, {align:'right'}); y += 3.4;
+      doc.text('- '+rupee(inv.discountAmt), amountColX, y); y += 3.4;
     }
     if(inv.deliveryCharge){
       doc.text('Delivery / Packing', mX, y);
-      doc.text(rupee(inv.deliveryCharge), widthMM-mX, y, {align:'right'}); y += 3.4;
+      doc.text(rupee(inv.deliveryCharge), amountColX, y); y += 3.4;
     }
-    if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), widthMM-mX, y, {align:'right'}); y += 3.4; }
+    if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), amountColX, y); y += 3.4; }
     doc.line(mX,y,widthMM-mX,y); y += 4.5;
 
     doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
-    doc.text('TOTAL', mX, y); doc.text(rupee(inv.total), widthMM-mX, y, {align:'right'}); y += 5.2;
+    doc.text('TOTAL', mX, y); doc.text(rupee(inv.total), amountColX, y); y += 5.2;
     doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
     doc.text(`Payment: ${(inv.paymentType||'cash').toUpperCase()}`, mX, y); y += 5;
 
