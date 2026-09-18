@@ -1188,7 +1188,11 @@ const Invoices = {
           <input class="input item-product-search" placeholder="Search product…" autocomplete="off" value="${productName(it.productId)}">
           <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
         </div>
-        <input class="input col-span-2 item-qty" type="number" min="1" value="${it.qty||1}">
+        <div class="col-span-2 flex items-center gap-0.5">
+          <button type="button" class="btn-ghost btn !px-1.5 !py-1 text-xs shrink-0" onclick="Invoices.stepQty(this,-1)">−</button>
+          <input class="input item-qty !text-center !px-0.5" type="number" min="1" value="${it.qty||1}">
+          <button type="button" class="btn-ghost btn !px-1.5 !py-1 text-xs shrink-0" onclick="Invoices.stepQty(this,1)">+</button>
+        </div>
         <input class="input col-span-2 item-price" type="number" step="0.01" value="${it.price??''}" placeholder="Price (incl. GST)">
         <input class="input col-span-2 item-tax" type="number" step="0.01" value="${it.tax??''}" placeholder="GST%">
         <button type="button" class="col-span-1 text-ember text-lg" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
@@ -1446,12 +1450,23 @@ const Invoices = {
         <input class="input item-product-search" placeholder="Search product…" autocomplete="off">
         <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
       </div>
-      <input class="input col-span-2 item-qty" type="number" min="1" value="1">
+      <div class="col-span-2 flex items-center gap-0.5">
+        <button type="button" class="btn-ghost btn !px-1.5 !py-1 text-xs shrink-0" onclick="Invoices.stepQty(this,-1)">−</button>
+        <input class="input item-qty !text-center !px-0.5" type="number" min="1" value="1">
+        <button type="button" class="btn-ghost btn !px-1.5 !py-1 text-xs shrink-0" onclick="Invoices.stepQty(this,1)">+</button>
+      </div>
       <input class="input col-span-2 item-price" type="number" step="0.01" placeholder="Price (incl. GST)">
       <input class="input col-span-2 item-tax" type="number" step="0.01" placeholder="GST%">
       <button type="button" class="col-span-1 text-ember text-lg" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
     </div>`;
     document.getElementById('itemRows').appendChild(wrap.firstElementChild);
+  },
+
+  stepQty(btn, delta){
+    const row = btn.closest('.item-row');
+    const input = row.querySelector('.item-qty');
+    input.value = Math.max(1, (parseFloat(input.value)||0) + delta);
+    Invoices.recalc();
   },
 
   selectRowProduct(wrapperEl, productId){
@@ -1928,7 +1943,7 @@ const Invoices = {
     doc.autoTable({
       startY: y,
       margin:{left:mX, right:mX},
-      head: [['Sl','Product',{content:'Amount', styles:{halign:'left'}}]],
+      head: [['Sl','Product',{content:'Amount', styles:{halign:'right'}}]],
       body: inv.items.map((it,i)=>[
         i+1,
         `${it.name}\n${it.qty} ${it.unit||''} x ${rupee(it.price)}`,
@@ -1939,7 +1954,7 @@ const Invoices = {
       columnStyles:{
         0:{cellWidth:contentW*0.07, cellPadding:{top:1,right:0.3,bottom:1,left:1}},
         1:{cellWidth:contentW*0.61, cellPadding:{top:1,right:1,bottom:1,left:0.6}},
-        2:{cellWidth:contentW*0.32, halign:'left', fontStyle:'bold'}
+        2:{cellWidth:contentW*0.32, halign:'right', fontStyle:'bold'}
       },
       theme:'plain',
       didDrawCell: data=>{
@@ -1952,9 +1967,9 @@ const Invoices = {
       }
     });
     y = doc.lastAutoTable.finalY + 3.8;
-    // Same left x-position as the item table's Amount column, so every rupee figure
-    // on the receipt — item amounts and this summary block — lines up in one column.
-    const amountColX = mX + contentW*0.68 + 1; // +1mm to match the item table's own cell padding
+    // Right edge matches the item table's Amount column (which right-aligns with a
+    // 1mm cell padding), so every rupee figure on the receipt shares the same edge.
+    const amountRightX = widthMM - mX - 1;
     doc.setFont('helvetica','bold'); doc.setFontSize(8);
     const totalQty = inv.items.reduce((s2,it)=>s2+it.qty,0);
     doc.text(`Items: ${inv.items.length}   Qty: ${totalQty}`, mX, y); y += 4.4;
@@ -1962,21 +1977,21 @@ const Invoices = {
     const itemsTotalForOldReceipts = inv.itemsTotal != null ? inv.itemsTotal : inv.total;
     if(inv.discountAmt || inv.deliveryCharge){
       doc.text('Items Total', mX, y);
-      doc.text(rupee(itemsTotalForOldReceipts), amountColX, y); y += 3.4;
+      doc.text(rupee(itemsTotalForOldReceipts), amountRightX, y, {align:'right'}); y += 3.4;
     }
     if(inv.discountAmt){
       doc.text(`Discount${inv.discountType==='percent'&&inv.discountValue?' ('+inv.discountValue+'%)':''}`, mX, y);
-      doc.text('- '+rupee(inv.discountAmt), amountColX, y); y += 3.4;
+      doc.text('- '+rupee(inv.discountAmt), amountRightX, y, {align:'right'}); y += 3.4;
     }
     if(inv.deliveryCharge){
       doc.text('Delivery / Packing', mX, y);
-      doc.text(rupee(inv.deliveryCharge), amountColX, y); y += 3.4;
+      doc.text(rupee(inv.deliveryCharge), amountRightX, y, {align:'right'}); y += 3.4;
     }
-    if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), amountColX, y); y += 3.4; }
+    if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), amountRightX, y, {align:'right'}); y += 3.4; }
     doc.line(mX,y,widthMM-mX,y); y += 4.5;
 
     doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
-    doc.text('TOTAL', mX, y); doc.text(rupee(inv.total), amountColX, y); y += 5.2;
+    doc.text('TOTAL', mX, y); doc.text(rupee(inv.total), amountRightX, y, {align:'right'}); y += 5.2;
     doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
     doc.text(`Payment: ${(inv.paymentType||'cash').toUpperCase()}`, mX, y); y += 5;
 
