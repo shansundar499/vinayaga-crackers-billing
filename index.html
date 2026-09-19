@@ -161,12 +161,32 @@ tr:last-child td{border-bottom:none;}
       </div>
       <button id="portalContinueShoppingBtn" class="btn-ghost btn text-sm mb-4">← Continue browsing</button>
 
+      <div class="card p-4 space-y-3 mb-4">
+        <h3 class="font-semibold">How would you like to proceed?</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="portalTypeEnquiryBtn" class="btn btn-gold text-xs !py-2.5" onclick="CustomerPortal.setOrderType('enquiry')">📞 Place Order — We'll Call You</button>
+          <button type="button" id="portalTypePayBtn" class="btn-ghost btn text-xs !py-2.5" onclick="CustomerPortal.setOrderType('pay')">💳 Pay &amp; Order Now</button>
+        </div>
+        <p id="portalTypeHint" class="text-dim text-[11px]">Your order goes straight to the shop — we'll call you shortly to confirm details and payment.</p>
+      </div>
+
       <div class="card p-4 space-y-3">
         <h3 class="font-semibold">Your details</h3>
         <div><label class="text-xs text-dim">Name *</label><input class="input mt-1" id="portalName" required></div>
         <div><label class="text-xs text-dim">Phone *</label><input class="input mt-1" id="portalPhone" type="tel" required></div>
         <div><label class="text-xs text-dim">Delivery / Pickup Address</label><textarea class="input mt-1" id="portalAddress" rows="2"></textarea></div>
         <div><label class="text-xs text-dim">Notes (optional)</label><input class="input mt-1" id="portalNotes" placeholder="Any special requests"></div>
+
+        <div id="portalPaymentBox" class="hidden card p-3 space-y-2 text-center" style="background:var(--panel2);">
+          <p class="text-sm font-semibold">Pay <span id="portalUpiAmount">₹0</span> via UPI</p>
+          <img id="portalUpiQr" class="mx-auto rounded-lg" width="160" height="160" alt="UPI QR code">
+          <a id="portalUpiAppLink" class="btn btn-gold w-full text-sm" target="_blank" rel="noopener">Pay with UPI App</a>
+          <p class="text-dim text-[11px]">Scan the QR code, or tap the button on your phone to open GPay/PhonePe/Paytm.</p>
+          <label class="flex items-center gap-2 text-xs pt-1 text-left">
+            <input type="checkbox" id="portalPaidConfirm"> I've completed the payment
+          </label>
+        </div>
+
         <button id="portalSubmitOrderBtn" class="btn btn-gold w-full !py-3">Place Order</button>
         <p id="portalOrderError" class="text-ember text-xs hidden"></p>
       </div>
@@ -175,7 +195,7 @@ tr:last-child td{border-bottom:none;}
     <div id="portalConfirmView" class="hidden text-center py-10">
       <p class="text-5xl mb-4">🎉</p>
       <h2 class="display text-xl font-bold mb-2">Order received!</h2>
-      <p class="text-dim text-sm mb-6">Thanks — we'll contact you shortly at the number you gave us to confirm your order.</p>
+      <p id="portalConfirmMsg" class="text-dim text-sm mb-6">Thanks — we'll contact you shortly at the number you gave us to confirm your order.</p>
       <button id="portalPlaceAnotherBtn" class="btn btn-gold">Place another order</button>
     </div>
   </main>
@@ -402,6 +422,7 @@ tr:last-child td{border-bottom:none;}
                 <div><label class="text-xs text-dim">Next Invoice #</label><input class="input mt-1" id="setNextNum" type="number"></div>
               </div>
               <div><label class="text-xs text-dim">Default GST %</label><input class="input mt-1" id="setDefaultTax" type="number" step="0.01"></div>
+              <div><label class="text-xs text-dim">UPI ID <span class="text-dim font-normal">(for "Pay & Order" in the customer portal — e.g. shopname@okhdfcbank)</span></label><input class="input mt-1" id="setUpiId" placeholder="yourshop@bank"></div>
               <div><label class="text-xs text-dim">Receipt Printer Width <span class="text-dim font-normal">(for the secondary roller-printer format)</span></label>
                 <select class="input mt-1" id="setReceiptWidth">
                   <option value="56">56 mm</option>
@@ -619,7 +640,10 @@ function showNewOrderAlert(orders){
         <p class="text-gold font-semibold">${fmt(total)}</p>
       </div>
       <p class="text-dim text-xs mb-2">${o.items.length} item(s) · ${o.customerPhone||'no phone'}</p>
-      <button class="btn btn-gold w-full text-sm" onclick="Orders.shareWhatsApp('${o.id}')">📲 Send via WhatsApp</button>
+      <div class="flex gap-2">
+        ${o.customerPhone?`<a class="btn-ghost btn !py-2 text-sm flex-1 text-center" href="tel:${o.customerPhone}">📞 Call</a>`:''}
+        <button class="btn btn-gold !py-2 text-sm flex-1" onclick="Orders.shareWhatsApp('${o.id}')">📲 WhatsApp</button>
+      </div>
     </div>`;
   }).join('');
   openModal(`
@@ -2193,13 +2217,17 @@ const Orders = {
             <p class="font-semibold">${o.customerName||'Customer'} <span class="text-dim text-xs font-normal">· ${o.customerPhone||'no phone'}</span></p>
             ${o.customerAddress?`<p class="text-dim text-xs mt-0.5">${o.customerAddress}</p>`:''}
           </div>
-          <span class="badge badge-${o.status==='new'?'pending':o.status==='confirmed'?'partial':o.status==='converted'?'paid':'cancelled'}">${o.status}</span>
+          <span class="flex items-center gap-1.5">
+            ${o.paymentClaimed?`<span class="badge badge-paid">💳 Paid (unverified)</span>`:`<span class="badge badge-pending">📞 Enquiry</span>`}
+            <span class="badge badge-${o.status==='new'?'pending':o.status==='confirmed'?'partial':o.status==='converted'?'paid':'cancelled'}">${o.status}</span>
+          </span>
         </div>
         <p class="text-sm mb-1">${itemsSummary}</p>
         ${o.notes?`<p class="text-dim text-xs mb-2">Note: ${o.notes}</p>`:''}
         <p class="font-medium text-gold mb-3">${fmt(total)}</p>
         <div class="flex gap-2 flex-wrap">
           ${o.status==='new'?`<button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Orders.markStatus('${o.id}','confirmed')">Mark Confirmed</button>`:''}
+          ${o.customerPhone?`<a class="btn-ghost btn !px-2 !py-1 text-xs" href="tel:${o.customerPhone}">📞 Call</a>`:''}
           <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Orders.shareWhatsApp('${o.id}')">📲 Share to WhatsApp</button>
           ${o.status!=='converted'&&o.status!=='cancelled'?`<button class="btn btn-gold !px-2 !py-1 text-xs" onclick="Orders.convert('${o.id}')">Convert to Invoice</button>`:''}
           ${o.invoiceNo?`<span class="text-dim text-xs self-center">→ ${o.invoiceNo}</span>`:''}
@@ -2215,7 +2243,9 @@ const Orders = {
    ============================================================ */
 const CustomerPortal = {
   cart: [],
+  orderType: 'enquiry',
   _productsUnsub: null,
+  _settingsLoaded: false,
 
   open(){
     hideAllTopLevelViews();
@@ -2231,6 +2261,14 @@ const CustomerPortal = {
       }, err=>{ listEl.innerHTML = `<p class="text-ember text-sm">Couldn't load products — ${err.message}</p>`; });
     } else {
       this.renderCatalog();
+    }
+    if(!this._settingsLoaded){
+      // Needed so "Pay & Order" can show your business name/UPI ID — requires the
+      // Firestore rule update below, since the portal isn't a signed-in session.
+      db.collection('settings').doc('main').get().then(doc=>{
+        if(doc.exists) Cache.settings = {...Cache.settings, ...doc.data()};
+        this._settingsLoaded = true;
+      }).catch(()=>{ /* rules not updated yet, or offline — Pay & Order just stays unavailable */ });
     }
   },
   close(){
@@ -2250,11 +2288,52 @@ const CustomerPortal = {
     document.getElementById('portalCartView').classList.remove('hidden');
     document.getElementById('portalConfirmView').classList.add('hidden');
     this.renderCart();
+    this.setOrderType('enquiry');
   },
   showConfirm(){
     document.getElementById('portalCatalogView').classList.add('hidden');
     document.getElementById('portalCartView').classList.add('hidden');
     document.getElementById('portalConfirmView').classList.remove('hidden');
+  },
+
+  // Two ways to check out: a no-payment "enquiry" the shop follows up on, or an
+  // immediate UPI payment (customer pays their own bank/UPI app directly — self-
+  // declared, not auto-verified, since there's no payment gateway backend here).
+  setOrderType(type){
+    if(type==='pay' && !Cache.settings.upiId){
+      toast("Online payment isn't set up yet — please place your order and we'll call you instead.");
+      type = 'enquiry';
+    }
+    this.orderType = type;
+    const enquiryBtn = document.getElementById('portalTypeEnquiryBtn');
+    const payBtn = document.getElementById('portalTypePayBtn');
+    enquiryBtn.className = type==='enquiry' ? 'btn btn-gold text-xs !py-2.5' : 'btn-ghost btn text-xs !py-2.5';
+    payBtn.className = type==='pay' ? 'btn btn-gold text-xs !py-2.5' : 'btn-ghost btn text-xs !py-2.5';
+    const paymentBox = document.getElementById('portalPaymentBox');
+    const hint = document.getElementById('portalTypeHint');
+    const submitBtn = document.getElementById('portalSubmitOrderBtn');
+    if(type==='pay'){
+      hint.textContent = "Pay the total below via UPI, then confirm — we'll verify and get your order ready.";
+      paymentBox.classList.remove('hidden');
+      submitBtn.textContent = 'Confirm Paid Order';
+      this.renderUpiPayment();
+    } else {
+      hint.textContent = "Your order goes straight to the shop — we'll call you shortly to confirm details and payment.";
+      paymentBox.classList.add('hidden');
+      submitBtn.textContent = 'Place Order';
+    }
+  },
+
+  renderUpiPayment(){
+    const upiId = Cache.settings.upiId;
+    if(!upiId) return;
+    const bizName = Cache.settings.bizName || 'Shop';
+    const amount = this.cartTotal();
+    const note = `Order ${new Date().toISOString().slice(0,10)}`;
+    const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(bizName)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note)}`;
+    document.getElementById('portalUpiAmount').textContent = fmt(amount);
+    document.getElementById('portalUpiQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUri)}`;
+    document.getElementById('portalUpiAppLink').href = upiUri;
   },
 
   renderCatalog(){
@@ -2327,6 +2406,7 @@ const CustomerPortal = {
         </div>
       </div>`).join('') : `<p class="text-dim text-sm">Your cart is empty — go back and add something.</p>`;
     document.getElementById('portalCartTotal').textContent = fmt(this.cartTotal());
+    if(this.orderType==='pay') this.renderUpiPayment();
   },
 
   async submitOrder(){
@@ -2338,24 +2418,34 @@ const CustomerPortal = {
     const notes = document.getElementById('portalNotes').value.trim();
     if(!this.cart.length){ errEl.textContent = 'Your cart is empty.'; errEl.classList.remove('hidden'); return; }
     if(!name || !phone){ errEl.textContent = 'Please enter your name and phone number.'; errEl.classList.remove('hidden'); return; }
+    const orderType = this.orderType || 'enquiry';
+    if(orderType==='pay' && !document.getElementById('portalPaidConfirm').checked){
+      errEl.textContent = "Please confirm you've completed the payment before submitting.";
+      errEl.classList.remove('hidden'); return;
+    }
     const btn = document.getElementById('portalSubmitOrderBtn');
-    btn.disabled = true; btn.textContent = 'Placing order…';
+    btn.disabled = true; btn.textContent = orderType==='pay' ? 'Submitting…' : 'Placing order…';
     try{
       await db.collection('orders').add({
         customerName: name, customerPhone: phone, customerAddress: address, notes,
         items: this.cart.map(c=>({productId:c.productId, name:c.name, price:c.price, tax:c.tax, unit:c.unit, qty:c.qty})),
-        status: 'new',
+        status: 'new', orderType, paymentClaimed: orderType==='pay',
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
       this.cart = [];
       this.updateCartBadge();
       ['portalName','portalPhone','portalAddress','portalNotes'].forEach(id=>document.getElementById(id).value='');
+      document.getElementById('portalPaidConfirm').checked = false;
+      document.getElementById('portalConfirmMsg').textContent = orderType==='pay'
+        ? "Thanks — we're verifying your payment and will confirm your order shortly."
+        : "Thanks — we'll contact you shortly at the number you gave us to confirm your order.";
+      this.setOrderType('enquiry');
       this.showConfirm();
     }catch(err){
       errEl.textContent = "Couldn't place your order — " + err.message;
       errEl.classList.remove('hidden');
     }finally{
-      btn.disabled = false; btn.textContent = 'Place Order';
+      btn.disabled = false; btn.textContent = orderType==='pay' ? 'Confirm Paid Order' : 'Place Order';
     }
   }
 };
@@ -2445,6 +2535,7 @@ const Settings = {
     setPhone.value = s.phone||''; setEmail.value = s.email||''; setGstin.value = s.gstin||'';
     setStateName.value = s.stateName||''; setStateCode.value = s.stateCode||'';
     setPrefix.value = s.prefix||'INV-'; setNextNum.value = s.nextNum||1001; setDefaultTax.value = s.defaultTax??18;
+    setUpiId.value = s.upiId||'';
     setReceiptWidth.value = s.receiptWidth || '80';
     setBankName.value = s.bankName||''; setBankAccount.value = s.bankAccount||''; setBankBranchIfsc.value = s.bankBranchIfsc||'';
     setDeclaration.value = s.declaration||'';
@@ -2459,6 +2550,7 @@ document.getElementById('settingsForm').addEventListener('submit', async e=>{
       gstin:setGstin.value, stateName:setStateName.value, stateCode:setStateCode.value,
       prefix:setPrefix.value, nextNum:parseInt(setNextNum.value)||1001,
       defaultTax:parseFloat(setDefaultTax.value)||0,
+      upiId:setUpiId.value.trim(),
       receiptWidth:setReceiptWidth.value
     }, {merge:true});
     document.getElementById('settingsSaved').classList.remove('hidden');
