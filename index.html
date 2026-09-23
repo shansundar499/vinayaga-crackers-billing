@@ -1206,22 +1206,21 @@ const Invoices = {
 
     const productName = pid => (products.find(p=>p.id===pid)||{}).name || '';
     const rowHtml = (it, idx) => `
-      <div class="grid grid-cols-12 gap-2 items-center item-row" data-idx="${idx}">
-        <div class="col-span-5 relative product-picker">
+      <div class="item-row border border-line rounded-lg p-2 space-y-2 md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-12 md:gap-2 md:items-center" data-idx="${idx}">
+        <div class="relative product-picker md:col-span-6">
           <input type="hidden" class="item-product" value="${it.productId||''}">
           <input class="input item-product-search" placeholder="Search product…" autocomplete="off" value="${productName(it.productId)}">
           <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
         </div>
-        <div class="col-span-2 flex items-stretch gap-1">
-          <input class="input item-qty !text-center !px-0.5 flex-1 min-w-0" type="number" min="1" value="${it.qty||1}">
-          <div class="flex flex-col shrink-0 rounded-lg overflow-hidden border border-line">
-            <button type="button" class="btn-ghost btn !border-0 !rounded-none flex-1 !px-2 !py-0 leading-none text-xs" onclick="Invoices.stepQty(this,1)">+</button>
-            <button type="button" class="btn-ghost btn !border-0 !rounded-none flex-1 !px-2 !py-0 leading-none text-xs border-t border-line" onclick="Invoices.stepQty(this,-1)">−</button>
+        <div class="grid grid-cols-12 gap-2 items-center md:contents">
+          <div class="col-span-6 md:col-span-3 flex items-center gap-1">
+            <button type="button" class="btn-ghost btn !px-2.5 !py-1.5 shrink-0" onclick="Invoices.stepQty(this,-1)">−</button>
+            <input class="input item-qty !text-center !px-0.5 min-w-0" type="number" min="1" value="${it.qty||1}">
+            <button type="button" class="btn-ghost btn !px-2.5 !py-1.5 shrink-0" onclick="Invoices.stepQty(this,1)">+</button>
           </div>
+          <input class="input col-span-5 md:col-span-2 item-price" type="number" step="0.01" value="${it.price??''}" placeholder="Price">
+          <button type="button" class="col-span-1 text-ember text-lg justify-self-end" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
         </div>
-        <input class="input col-span-2 item-price" type="number" step="0.01" value="${it.price??''}" placeholder="Price (incl. GST)">
-        <input class="input col-span-2 item-tax" type="number" step="0.01" value="${it.tax??''}" placeholder="GST%">
-        <button type="button" class="col-span-1 text-ember text-lg" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
       </div>`;
 
     openModal(`
@@ -1281,6 +1280,10 @@ const Invoices = {
         </details>
 
         <div class="flex items-center justify-between mb-2">
+          <label class="text-xs text-dim">GST % <span class="font-normal">(same rate applied to every item)</span></label>
+          <input class="input !w-24" id="iGstPercent" type="number" step="0.01" min="0" value="${inv&&inv.items&&inv.items[0]?inv.items[0].tax:(opts.prefillItems&&opts.prefillItems[0]?opts.prefillItems[0].tax:(settings.defaultTax??18))}">
+        </div>
+        <div class="flex items-center justify-between mb-2">
           <label class="text-xs text-dim">Items</label>
           <div class="flex gap-1">
             <button type="button" class="btn-gold btn !px-2 !py-1 text-xs" onclick="Invoices.openItemPicker()">📋 Browse Products</button>
@@ -1290,7 +1293,7 @@ const Invoices = {
         <div id="itemRows" class="space-y-2 mb-2">
           ${items.length ? items.map(rowHtml).join('') : rowHtml({qty:1}, 0)}
         </div>
-        <div class="text-right text-xs text-dim mb-4">Qty · Price (incl. GST) · GST%</div>
+        <div class="text-right text-xs text-dim mb-4">Qty · Price (incl. GST)</div>
 
         <div class="grid md:grid-cols-2 gap-2 mb-2">
           <div><label class="text-xs text-dim">Discount</label>
@@ -1383,7 +1386,7 @@ const Invoices = {
         });
       });
     }
-    ['iDiscountValue','iDiscountType','iDeliveryCharge'].forEach(id=>{
+    ['iDiscountValue','iDiscountType','iDeliveryCharge','iGstPercent'].forEach(id=>{
       document.getElementById(id).addEventListener('input', ()=>Invoices.recalc());
     });
     Invoices.recalc();
@@ -1391,6 +1394,7 @@ const Invoices = {
     document.getElementById('invForm').addEventListener('submit', async e=>{
       e.preventDefault();
       const rows = [...document.querySelectorAll('.item-row')];
+      const gstPercent = parseFloat(document.getElementById('iGstPercent').value)||0;
       const items = rows.map(r=>{
         const pid = r.querySelector('.item-product').value;
         const prod = products.find(p=>p.id===pid);
@@ -1398,7 +1402,7 @@ const Invoices = {
           productId: pid, name: prod?prod.name:'Item', hsn: prod?prod.hsn:'', unit: prod?prod.unit:'pcs',
           qty: parseFloat(r.querySelector('.item-qty').value)||0,
           price: parseFloat(r.querySelector('.item-price').value)||0,
-          tax: parseFloat(r.querySelector('.item-tax').value)||0
+          tax: gstPercent
         };
       }).filter(it=>it.productId);
       if(!items.length){ toast('Add at least one item'); return; }
@@ -1470,22 +1474,21 @@ const Invoices = {
 
   addItemRow(){
     const wrap = document.createElement('div');
-    wrap.innerHTML = `<div class="grid grid-cols-12 gap-2 items-center item-row">
-      <div class="col-span-5 relative product-picker">
+    wrap.innerHTML = `<div class="item-row border border-line rounded-lg p-2 space-y-2 md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-12 md:gap-2 md:items-center">
+      <div class="relative product-picker md:col-span-6">
         <input type="hidden" class="item-product" value="">
         <input class="input item-product-search" placeholder="Search product…" autocomplete="off">
         <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
       </div>
-      <div class="col-span-2 flex items-stretch gap-1">
-        <input class="input item-qty !text-center !px-0.5 flex-1 min-w-0" type="number" min="1" value="1">
-        <div class="flex flex-col shrink-0 rounded-lg overflow-hidden border border-line">
-          <button type="button" class="btn-ghost btn !border-0 !rounded-none flex-1 !px-2 !py-0 leading-none text-xs" onclick="Invoices.stepQty(this,1)">+</button>
-          <button type="button" class="btn-ghost btn !border-0 !rounded-none flex-1 !px-2 !py-0 leading-none text-xs border-t border-line" onclick="Invoices.stepQty(this,-1)">−</button>
+      <div class="grid grid-cols-12 gap-2 items-center md:contents">
+        <div class="col-span-6 md:col-span-3 flex items-center gap-1">
+          <button type="button" class="btn-ghost btn !px-2.5 !py-1.5 shrink-0" onclick="Invoices.stepQty(this,-1)">−</button>
+          <input class="input item-qty !text-center !px-0.5 min-w-0" type="number" min="1" value="1">
+          <button type="button" class="btn-ghost btn !px-2.5 !py-1.5 shrink-0" onclick="Invoices.stepQty(this,1)">+</button>
         </div>
+        <input class="input col-span-5 md:col-span-2 item-price" type="number" step="0.01" placeholder="Price">
+        <button type="button" class="col-span-1 text-ember text-lg justify-self-end" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
       </div>
-      <input class="input col-span-2 item-price" type="number" step="0.01" placeholder="Price (incl. GST)">
-      <input class="input col-span-2 item-tax" type="number" step="0.01" placeholder="GST%">
-      <button type="button" class="col-span-1 text-ember text-lg" onclick="this.closest('.item-row').remove(); Invoices.recalc();">×</button>
     </div>`;
     document.getElementById('itemRows').appendChild(wrap.firstElementChild);
   },
@@ -1505,7 +1508,6 @@ const Invoices = {
     wrapperEl.querySelector('.product-picker-results').classList.add('hidden');
     const row = wrapperEl.closest('.item-row');
     row.querySelector('.item-price').value = prod.price;
-    row.querySelector('.item-tax').value = prod.tax;
     Invoices.recalc();
   },
 
@@ -1538,10 +1540,11 @@ const Invoices = {
 
   recalc(){
     const rows = [...document.querySelectorAll('.item-row')];
+    const gstPercent = parseFloat(document.getElementById('iGstPercent')?.value)||0;
     const items = rows.map(r=>({
       qty: parseFloat(r.querySelector('.item-qty').value)||0,
       price: parseFloat(r.querySelector('.item-price').value)||0,
-      tax: parseFloat(r.querySelector('.item-tax').value)||0
+      tax: gstPercent
     }));
     const discount = {type: document.getElementById('iDiscountType').value, value: parseFloat(document.getElementById('iDiscountValue').value)||0};
     const deliveryCharge = parseFloat(document.getElementById('iDeliveryCharge').value)||0;
@@ -2210,9 +2213,13 @@ const Orders = {
     if(!list.length){ wrap.innerHTML = `<div class="card p-8 text-center text-dim text-sm">No orders here.</div>`; return; }
     wrap.innerHTML = list.map(o=>{
       const total = o.items.reduce((s,it)=>s+it.qty*it.price,0);
-      const itemsSummary = o.items.map(it=>`${it.qty} × ${it.name}`).join(', ');
+      const itemsHtml = o.items.map(it=>`
+        <div class="flex items-center justify-between gap-2 bg-panel2 rounded-lg px-3 py-1.5">
+          <span class="text-sm truncate">${it.name}</span>
+          <span class="text-dim text-xs font-medium shrink-0 ml-2">×${it.qty}</span>
+        </div>`).join('');
       return `<div class="card p-4">
-        <div class="flex justify-between items-start gap-2 flex-wrap mb-2">
+        <div class="flex justify-between items-start gap-2 flex-wrap mb-3">
           <div>
             <p class="font-semibold">${o.customerName||'Customer'} <span class="text-dim text-xs font-normal">· ${o.customerPhone||'no phone'}</span></p>
             ${o.customerAddress?`<p class="text-dim text-xs mt-0.5">${o.customerAddress}</p>`:''}
@@ -2222,9 +2229,9 @@ const Orders = {
             <span class="badge badge-${o.status==='new'?'pending':o.status==='confirmed'?'partial':o.status==='converted'?'paid':'cancelled'}">${o.status}</span>
           </span>
         </div>
-        <p class="text-sm mb-1">${itemsSummary}</p>
+        <div class="grid gap-1 mb-3">${itemsHtml}</div>
         ${o.notes?`<p class="text-dim text-xs mb-2">Note: ${o.notes}</p>`:''}
-        <p class="font-medium text-gold mb-3">${fmt(total)}</p>
+        <p class="font-semibold text-gold text-lg mb-3">${fmt(total)}</p>
         <div class="flex gap-2 flex-wrap">
           ${o.status==='new'?`<button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Orders.markStatus('${o.id}','confirmed')">Mark Confirmed</button>`:''}
           ${o.customerPhone?`<a class="btn-ghost btn !px-2 !py-1 text-xs" href="tel:${o.customerPhone}">📞 Call</a>`:''}
