@@ -749,55 +749,59 @@ const fmt = n => '₹' + (Number(n)||0).toLocaleString('en-IN', {maximumFraction
 
 // Pre-fill for Products → Bulk Import, extracted from the shop's price list (the 50%
 // discount column is the actual selling price, per the owner).
-const BULK_IMPORT_PREFILL = [
-  ["7 CM E-RAMESH",15],["10 CM RAMESH NANO",25],["12 CM E",30],["12 CM C",30],["15 CM E",50],
-  ["15 CM C",50],["15 CM R",50],["15 CM G",50],["30 CM E",50],["30 CM C",50],["30 CM R",50],
-  ["30 CM G",50],["15 CM-RAMESH NANO",60],["30 CM-RAMESH NANO",60],["RSR 50 CM E",250],
-  ["50 CM E-RAMESH",275],["75 CM E-RAMESH",350],["RAMESH 15 CM E",80],["RAMESH 30 CM E",80],
-  ["RAMESH 10 CM 5 IN 1",250],["RAMESH 15 CM MAGESTIC 5 IN 1",400],["RAMESH 30 CM 3 IN 1",300],
-  ["ASOK ROTATING SPARKLERS",250],["LOVELY HEART 3PC",200],
-  ["100 WALA",40],["200 WALA",80],["300 WALA",120],["600 WALA",200],["1000 WALA-HALF",250],
-  ["2000 WALA-HALF",500],["5000 WALA-HALF",1500],["1000 WALA MEDIUM",350],["2000 WALA MEDIUM",700],
-  ["5000 WALA MEDIUM",1750],["10000 WALA MEDIUM",3500],
-  ["VAP 1000 WALA",400],["VAP 2000 WALA",800],["VAP 5000 WALA",2000],["VAP 10000 WALA",4000],
-  ["28 CHORSA",15],["56 CHORSA",30],["28 GAINT",30],["56 GAINT",60],["24 DLX",60],["50 DLX",120],
-  ["50 MEG DLX",250],["100 MEG DLX",400],["100 DLX",250],
-  ["BIM BOM",70],["TIP TOP RSR",80],["MINI PEOCOCK",150],["RK/AK DANCING PEACOCK",250],
-  ["RK/AK 5PC-PEACOCK",300],["RK 5PC- MEGA PEACOCK",400],["BADA PEAFOWL-WOW/BEEMA",600],
-  ["VEL FANCY",250],["CYLINDER BOMB",250],["MRF BAT AND BALL COLOUR",250],["AK STAR RAIN 2PC",250],
-  ["AK TWIX 5PC",250],["COLOR FOG AKS 3PC",250],["RSR OGGY/ROCK STAR",250],["CAR HELLO KITTY 3PC",350],
-  ["RK XMAS MIX",250],["RK MAYALAAL MIX",250],["INF MAD ANGLES 3",300],["INF 4 SQURE",350],
-  ["AK GOLDEN RAIN/GOLD FLY RK",200],["RK SEA LASER-MIX 250",250],["SHOWER-RSR/WOW",200],
-  ["TIN FOUNTAIN 1-PC",120],["ASOK JOLLY BOBBY TIN 3PCE",450],["RR COCKTAIL STAR (3 PCE)",360],
-  ["BAMBARA",150],["DRONE",150],["MONEY BANK 1PC",60],["MONEY BANK BIG 2PC",300],["PHOTO FLASH",100],
-  ["TWIN CRACK MIX",250],["ATLAS-SIREN GREEN 2PC",250],["SIREN 3PC",300],
-  ["SONY SNAKEFLOWER POT AND CHAKKRAS",60],
-  ["RSR F/P SMALL",80],["RSR F/P BIG",150],["ATLAS F/P BIG",150],["RSR F/P SPECIAL",200],
-  ["ATLAS F/P SPECIAL",200],["RSR F/P ASOKA",300],["RSR TRI COLOR 5PC",400],["SHIN CHAN TRI COLOR",200],
-  ["POPEYE TRI COLOR",400],["GINNIS G/C BIG",70],["GINNIS G/C SPECIAL",150],["GINNIS G/C DLX",250],
-  ["ATLAS 1.5\" T.STAR",50],["ATLAS 4\" T.STAR",100],
-  ["ROBIN VIP 10IN1 LAPTOP",275],["ROBIN VIP 10IN1 REGULAR",275],["ROBIN CLASSIC 5IN1",150],
-  ["SUPERKING SQUARE",100],["ROBIN SUPER DELUXE 10IN1",100],["SUPER DELUXE 3IN1",60],
-  ["SUPER DELUXE SMALL",40],
-  ["7 SHOT",120],["SONY 7 SHOT",260],["12 SHOT RED&GREEN/RIDER",250],["RSR 12 SHOT Crackling",300],
-  ["Chotta 1\" MIX",50],["AK/RSR- 1.5\" OUT",100],["AK- 2\" OUT",200],["RK 2\" RED JEDIX MIX 2PC",300],
-  ["RK 2\" SPIDER MAN MIX 3PC",400],["RK 2.5\" RED BALST MIX",250],["AK 2\"-3PC",350],
-  ["RSR/AK/RR 3.5\" OUT",400],["RK 4\" FRANCE MIX",450],["RSR 4\" UV SPECIAL",500],
-  ["AK 4\" NAYAGARA FALLS",500],["RK/THANIGAI 4.5\" HOT MIRCHI MIX",650],["RSR 6\" MEGA OUT",900],
-  ["SONY 4\" GOLD OCTOPUS 2PC",1400],["SONY 4.5\" MEGA OUT",1500],["SONY 5\" BIG OUT 2PC",1800],
-  ["RK 30 SHOT",600],["RK 60 SHOT",1200],["RK 120 SHOT",2400],["RK 240 SHOT",4200],
-  ["LIYA 10*10 IPL SHOT",3500],["IPL SHOT 3*10",1200],["SONY 4*5 20-SHOT",1300],
-  ["2 SOUND ROCKET",200],["WHISSLE ROCKET",200],
-  ["BLUE STAR BIGILI 50PC",25],["BLUE STAR BIGILI 100PC",50],["BIRD-KURUVI",10],
-  ["STRANDARD MACHINE BIJILI-100'S",80],["ATLAS LAKSHMI 3\"",15],["NILAS/ATLAS LAKSHMI 4\"",25],
-  ["NILAS/ATLAS LAKSHMI 4\" GOLD",40],["HULK LAKSHMI 5\"",60],["LAKSHMI 6 DELUXE\"",80],
-  ["2-SOUND",40],["TVK KING OF KING BOMB",250],["ARI MID",120],["ARI BIG",60],
-  ["1-GUN+5-RING CAP",100],["PAPER BOMB 1 KG",200],["PAPER BOMB 1/2 KG",100],
-  ["PAPER BOMB 1/4 KG",60],["COLOR BOMB",60],["ROLL CAP GOKUL",80],
-  ["16 ITEMS",300],["21 ITEMS",400],["27 ITEMS",600],["33 ITEMS",750],["42 ITEMS",1000],
-  ["54 ITEMS",1500],["ROBO-ANDROID 30 ITEMS",800],["ROBO-GALAXY 40 ITEMS",1200],
-  ["ROBO-WHATAPP 50 ITEMS",1500],["ROBO-YOYTUBE 55 ITEMS",1700],["ROBO 3.O KUTTI KIDS 28 ITEMS",850]
-].map(([n,p])=>`${n}, ${p}`).join('\n');
+const PRODUCT_CATALOG = [
+  ["SPK","7 CM E-RAMESH",15],["SPK","10 CM RAMESH NANO",25],["SPK","12 CM E",30],["SPK","12 CM C",30],["SPK","15 CM E",50],
+  ["SPK","15 CM C",50],["SPK","15 CM R",50],["SPK","15 CM G",50],["SPK","30 CM E",50],["SPK","30 CM C",50],["SPK","30 CM R",50],
+  ["SPK","30 CM G",50],["SPK","15 CM-RAMESH NANO",60],["SPK","30 CM-RAMESH NANO",60],["SPK","RSR 50 CM E",250],
+  ["SPK","50 CM E-RAMESH",275],["SPK","75 CM E-RAMESH",350],["SPK","RAMESH 15 CM E",80],["SPK","RAMESH 30 CM E",80],
+  ["SPK","RAMESH 10 CM 5 IN 1",250],["SPK","RAMESH 15 CM MAGESTIC 5 IN 1",400],["SPK","RAMESH 30 CM 3 IN 1",300],
+  ["SPK","ASOK ROTATING SPARKLERS",250],["SPK","LOVELY HEART 3PC",200],
+  ["WALA","100 WALA",40],["WALA","200 WALA",80],["WALA","300 WALA",120],["WALA","600 WALA",200],["WALA","1000 WALA-HALF",250],
+  ["WALA","2000 WALA-HALF",500],["WALA","5000 WALA-HALF",1500],["WALA","1000 WALA MEDIUM",350],["WALA","2000 WALA MEDIUM",700],
+  ["WALA","5000 WALA MEDIUM",1750],["WALA","10000 WALA MEDIUM",3500],
+  ["WALA","VAP 1000 WALA",400],["WALA","VAP 2000 WALA",800],["WALA","VAP 5000 WALA",2000],["WALA","VAP 10000 WALA",4000],
+  ["WALA","28 CHORSA",15],["WALA","56 CHORSA",30],["WALA","28 GAINT",30],["WALA","56 GAINT",60],["WALA","24 DLX",60],["WALA","50 DLX",120],
+  ["WALA","50 MEG DLX",250],["WALA","100 MEG DLX",400],["WALA","100 DLX",250],
+  ["FCY","BIM BOM",70],["FCY","TIP TOP RSR",80],["FCY","MINI PEOCOCK",150],["FCY","RK/AK DANCING PEACOCK",250],
+  ["FCY","RK/AK 5PC-PEACOCK",300],["FCY","RK 5PC- MEGA PEACOCK",400],["FCY","BADA PEAFOWL-WOW/BEEMA",600],
+  ["FCY","VEL FANCY",250],["FCY","CYLINDER BOMB",250],["FCY","MRF BAT AND BALL COLOUR",250],["FCY","AK STAR RAIN 2PC",250],
+  ["FCY","AK TWIX 5PC",250],["FCY","COLOR FOG AKS 3PC",250],["FCY","RSR OGGY/ROCK STAR",250],["FCY","CAR HELLO KITTY 3PC",350],
+  ["FCY","RK XMAS MIX",250],["FCY","RK MAYALAAL MIX",250],["FCY","INF MAD ANGLES 3",300],["FCY","INF 4 SQURE",350],
+  ["FCY","AK GOLDEN RAIN/GOLD FLY RK",200],["FCY","RK SEA LASER-MIX 250",250],["FCY","SHOWER-RSR/WOW",200],
+  ["FCY","TIN FOUNTAIN 1-PC",120],["FCY","ASOK JOLLY BOBBY TIN 3PCE",450],["FCY","RR COCKTAIL STAR (3 PCE)",360],
+  ["FCY","BAMBARA",150],["FCY","DRONE",150],["FCY","MONEY BANK 1PC",60],["FCY","MONEY BANK BIG 2PC",300],["FCY","PHOTO FLASH",100],
+  ["FCY","TWIN CRACK MIX",250],["FCY","ATLAS-SIREN GREEN 2PC",250],["FCY","SIREN 3PC",300],
+  ["FCY","SONY SNAKEFLOWER POT AND CHAKKRAS",60],
+  ["FCY","RSR F/P SMALL",80],["FCY","RSR F/P BIG",150],["FCY","ATLAS F/P BIG",150],["FCY","RSR F/P SPECIAL",200],
+  ["FCY","ATLAS F/P SPECIAL",200],["FCY","RSR F/P ASOKA",300],["FCY","RSR TRI COLOR 5PC",400],["FCY","SHIN CHAN TRI COLOR",200],
+  ["FCY","POPEYE TRI COLOR",400],["FCY","GINNIS G/C BIG",70],["FCY","GINNIS G/C SPECIAL",150],["FCY","GINNIS G/C DLX",250],
+  ["FCY","ATLAS 1.5\" T.STAR",50],["FCY","ATLAS 4\" T.STAR",100],
+  ["MAT","ROBIN VIP 10IN1 LAPTOP",275],["MAT","ROBIN VIP 10IN1 REGULAR",275],["MAT","ROBIN CLASSIC 5IN1",150],
+  ["MAT","SUPERKING SQUARE",100],["MAT","ROBIN SUPER DELUXE 10IN1",100],["MAT","SUPER DELUXE 3IN1",60],
+  ["MAT","SUPER DELUXE SMALL",40],
+  ["MSH","7 SHOT",120],["MSH","SONY 7 SHOT",260],["MSH","12 SHOT RED&GREEN/RIDER",250],["MSH","RSR 12 SHOT Crackling",300],
+  ["MSH","Chotta 1\" MIX",50],["MSH","AK/RSR- 1.5\" OUT",100],["MSH","AK- 2\" OUT",200],["MSH","RK 2\" RED JEDIX MIX 2PC",300],
+  ["MSH","RK 2\" SPIDER MAN MIX 3PC",400],["MSH","RK 2.5\" RED BALST MIX",250],["MSH","AK 2\"-3PC",350],
+  ["MSH","RSR/AK/RR 3.5\" OUT",400],["MSH","RK 4\" FRANCE MIX",450],["MSH","RSR 4\" UV SPECIAL",500],
+  ["MSH","AK 4\" NAYAGARA FALLS",500],["MSH","RK/THANIGAI 4.5\" HOT MIRCHI MIX",650],["MSH","RSR 6\" MEGA OUT",900],
+  ["MSH","SONY 4\" GOLD OCTOPUS 2PC",1400],["MSH","SONY 4.5\" MEGA OUT",1500],["MSH","SONY 5\" BIG OUT 2PC",1800],
+  ["MSH","RK 30 SHOT",600],["MSH","RK 60 SHOT",1200],["MSH","RK 120 SHOT",2400],["MSH","RK 240 SHOT",4200],
+  ["MSH","LIYA 10*10 IPL SHOT",3500],["MSH","IPL SHOT 3*10",1200],["MSH","SONY 4*5 20-SHOT",1300],
+  ["MSH","2 SOUND ROCKET",200],["MSH","WHISSLE ROCKET",200],
+  ["SGL","BLUE STAR BIGILI 50PC",25],["SGL","BLUE STAR BIGILI 100PC",50],["SGL","BIRD-KURUVI",10],
+  ["SGL","STRANDARD MACHINE BIJILI-100'S",80],["SGL","ATLAS LAKSHMI 3\"",15],["SGL","NILAS/ATLAS LAKSHMI 4\"",25],
+  ["SGL","NILAS/ATLAS LAKSHMI 4\" GOLD",40],["SGL","HULK LAKSHMI 5\"",60],["SGL","LAKSHMI 6 DELUXE\"",80],
+  ["SGL","2-SOUND",40],["SGL","TVK KING OF KING BOMB",250],["SGL","ARI MID",120],["SGL","ARI BIG",60],
+  ["SGL","1-GUN+5-RING CAP",100],["SGL","PAPER BOMB 1 KG",200],["SGL","PAPER BOMB 1/2 KG",100],
+  ["SGL","PAPER BOMB 1/4 KG",60],["SGL","COLOR BOMB",60],["SGL","ROLL CAP GOKUL",80],
+  ["GFT","16 ITEMS",300],["GFT","21 ITEMS",400],["GFT","27 ITEMS",600],["GFT","33 ITEMS",750],["GFT","42 ITEMS",1000],
+  ["GFT","54 ITEMS",1500],["GFT","ROBO-ANDROID 30 ITEMS",800],["GFT","ROBO-GALAXY 40 ITEMS",1200],
+  ["GFT","ROBO-WHATAPP 50 ITEMS",1500],["GFT","ROBO-YOYTUBE 55 ITEMS",1700],["GFT","ROBO 3.O KUTTI KIDS 28 ITEMS",850]
+];
+const BULK_IMPORT_PREFILL = PRODUCT_CATALOG.map(([c,n,p])=>`${n}, ${p}`).join('\n');
+// name (lowercased) -> category prefix, so SKUs can be assigned as SPK-001, WALA-001,
+// etc. instead of one flat sequence, for both Bulk Import and the SKU/HSN backfill tool.
+const PRODUCT_CATEGORY_PREFIX = Object.fromEntries(PRODUCT_CATALOG.map(([c,n])=>[n.trim().toLowerCase(), c+'-']));
 
 
 // Builds a nicely formatted WhatsApp message for an order — WhatsApp has no real
@@ -1163,10 +1167,10 @@ const Products = {
   openBulkImport(){
     openModal(`
       <h3 class="font-semibold text-lg mb-1">Bulk Import Products</h3>
-      <p class="text-dim text-xs mb-3">One product per line: <span class="mono">Name, Price</span> (optionally <span class="mono">Name, Price, GST%, SKU, HSN</span> to override the defaults below per line). Products with a name that already exists are skipped — safe to re-run.</p>
+      <p class="text-dim text-xs mb-3">One product per line: <span class="mono">Name, Price</span> (optionally <span class="mono">Name, Price, GST%, SKU, HSN</span> to override per line). Products with a name that already exists are skipped — safe to re-run. Items matching the standard price list get a category-based SKU automatically (SPK-, WALA-, FCY-, MAT-, MSH-, SGL-, GFT-) — the prefix below is only used for anything else.</p>
       <div class="grid grid-cols-2 gap-2 mb-3">
         <div><label class="text-xs text-dim">Default HSN/SAC <span class="font-normal">(fireworks = 36041000)</span></label><input id="bulkImportHsn" class="input mt-1" value="36041000"></div>
-        <div><label class="text-xs text-dim">SKU prefix <span class="font-normal">(auto-numbered)</span></label><input id="bulkImportSkuPrefix" class="input mt-1" value="VC-"></div>
+        <div><label class="text-xs text-dim">Fallback SKU prefix <span class="font-normal">(for items not in the standard price list, auto-numbered)</span></label><input id="bulkImportSkuPrefix" class="input mt-1" value="MISC-"></div>
       </div>
       <textarea id="bulkImportText" class="input mono" rows="14" style="font-size:12px;" placeholder="7 CM E-RAMESH, 15"></textarea>
       <div class="flex gap-2 pt-3 items-center">
@@ -1185,11 +1189,16 @@ const Products = {
     const existingSkus = new Set(Products.list().map(p=>(p.sku||'').trim().toLowerCase()).filter(Boolean));
     const defaultTax = Cache.settings.defaultTax ?? 18;
     const defaultHsn = document.getElementById('bulkImportHsn').value.trim();
-    const skuPrefix = document.getElementById('bulkImportSkuPrefix').value.trim();
-    let skuCounter = Products.list().length + 1;
-    const nextSku = () => {
+    const fallbackPrefix = document.getElementById('bulkImportSkuPrefix').value.trim();
+    // Per-category counters (SPK-, WALA-, etc.) continuing from however many of that
+    // prefix already exist, so re-running doesn't restart numbering from 1 each time.
+    const skuCounters = {};
+    const nextSku = (prefix) => {
+      if(skuCounters[prefix] === undefined){
+        skuCounters[prefix] = Products.list().filter(p=>(p.sku||'').toUpperCase().startsWith(prefix.toUpperCase())).length + 1;
+      }
       let sku, tries = 0;
-      do { sku = `${skuPrefix}${String(skuCounter).padStart(3,'0')}`; skuCounter++; tries++; }
+      do { sku = `${prefix}${String(skuCounters[prefix]).padStart(3,'0')}`; skuCounters[prefix]++; tries++; }
       while(existingSkus.has(sku.toLowerCase()) && tries < 10000);
       existingSkus.add(sku.toLowerCase());
       return sku;
@@ -1202,7 +1211,7 @@ const Products = {
       if(!name || isNaN(price)){ invalid++; return; }
       if(existingNames.has(name.toLowerCase())){ skipped++; return; }
       const tax = (parts[2]!==undefined && parts[2]!=='') ? parseFloat(parts[2]) : defaultTax;
-      const sku = parts[3] || nextSku();
+      const sku = parts[3] || nextSku(PRODUCT_CATEGORY_PREFIX[name.toLowerCase()] || fallbackPrefix);
       const hsn = parts[4] || defaultHsn;
       toAdd.push({name, price, tax: isNaN(tax)?defaultTax:tax, sku, hsn, unit:'pcs', stock:0});
       existingNames.add(name.toLowerCase());
@@ -1237,14 +1246,17 @@ const Products = {
     if(!targets.length){ toast('Nothing to update — every product already has a SKU and HSN.'); return; }
     const hsn = prompt(`Default HSN/SAC for the ${targets.length} product(s) missing one:`, '36041000');
     if(hsn === null) return;
-    const skuPrefix = prompt('SKU prefix for auto-numbering products missing a SKU:', 'VC-');
-    if(skuPrefix === null) return;
+    const fallbackPrefix = prompt('Fallback SKU prefix for items not in the standard price list (recognised items get their own category prefix — SPK-, WALA-, FCY-, MAT-, MSH-, SGL-, GFT- — automatically):', 'MISC-');
+    if(fallbackPrefix === null) return;
     if(!confirm(`Update ${targets.length} product(s)?`)) return;
     const existingSkus = new Set(Products.list().map(p=>(p.sku||'').trim().toLowerCase()).filter(Boolean));
-    let skuCounter = 1;
-    const nextSku = () => {
+    const skuCounters = {};
+    const nextSku = (prefix) => {
+      if(skuCounters[prefix] === undefined){
+        skuCounters[prefix] = Products.list().filter(p=>(p.sku||'').toUpperCase().startsWith(prefix.toUpperCase())).length + 1;
+      }
       let sku, tries = 0;
-      do { sku = `${skuPrefix}${String(skuCounter).padStart(3,'0')}`; skuCounter++; tries++; }
+      do { sku = `${prefix}${String(skuCounters[prefix]).padStart(3,'0')}`; skuCounters[prefix]++; tries++; }
       while(existingSkus.has(sku.toLowerCase()) && tries < 10000);
       existingSkus.add(sku.toLowerCase());
       return sku;
@@ -1254,7 +1266,7 @@ const Products = {
         const batch = db.batch();
         targets.slice(i,i+450).forEach(p=>{
           const updates = {};
-          if(!p.sku) updates.sku = nextSku();
+          if(!p.sku) updates.sku = nextSku(PRODUCT_CATEGORY_PREFIX[p.name.trim().toLowerCase()] || fallbackPrefix);
           if(!p.hsn) updates.hsn = hsn.trim();
           batch.update(db.collection('products').doc(p.id), updates);
         });
