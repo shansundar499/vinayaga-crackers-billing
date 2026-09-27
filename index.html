@@ -373,6 +373,7 @@ tr:last-child td{border-bottom:none;}
           <h2 class="display text-2xl font-bold">Products &amp; Services</h2>
           <div class="flex gap-2">
             <button class="btn-ghost btn text-sm" data-admin-only onclick="Products.openBulkImport()">📥 Bulk Import</button>
+            <button class="btn-ghost btn text-sm" data-admin-only onclick="Products.backfillSkuHsn()">🔧 Fill Missing SKU/HSN</button>
             <button class="btn btn-gold text-sm" onclick="Products.openForm()">+ Add Product</button>
           </div>
         </div>
@@ -1162,7 +1163,11 @@ const Products = {
   openBulkImport(){
     openModal(`
       <h3 class="font-semibold text-lg mb-1">Bulk Import Products</h3>
-      <p class="text-dim text-xs mb-3">One product per line: <span class="mono">Name, Price</span> (optionally <span class="mono">Name, Price, GST%</span>). Products with a name that already exists are skipped — safe to re-run.</p>
+      <p class="text-dim text-xs mb-3">One product per line: <span class="mono">Name, Price</span> (optionally <span class="mono">Name, Price, GST%, SKU, HSN</span> to override the defaults below per line). Products with a name that already exists are skipped — safe to re-run.</p>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div><label class="text-xs text-dim">Default HSN/SAC <span class="font-normal">(fireworks = 36041000)</span></label><input id="bulkImportHsn" class="input mt-1" value="36041000"></div>
+        <div><label class="text-xs text-dim">SKU prefix <span class="font-normal">(auto-numbered)</span></label><input id="bulkImportSkuPrefix" class="input mt-1" value="VC-"></div>
+      </div>
       <textarea id="bulkImportText" class="input mono" rows="14" style="font-size:12px;" placeholder="7 CM E-RAMESH, 15"></textarea>
       <div class="flex gap-2 pt-3 items-center">
         <button class="btn btn-gold" type="button" id="bulkImportBtn" onclick="Products.runBulkImport()">Import</button>
@@ -1177,7 +1182,18 @@ const Products = {
     const btn = document.getElementById('bulkImportBtn');
     const lines = document.getElementById('bulkImportText').value.split('\n').map(l=>l.trim()).filter(Boolean);
     const existingNames = new Set(Products.list().map(p=>p.name.trim().toLowerCase()));
+    const existingSkus = new Set(Products.list().map(p=>(p.sku||'').trim().toLowerCase()).filter(Boolean));
     const defaultTax = Cache.settings.defaultTax ?? 18;
+    const defaultHsn = document.getElementById('bulkImportHsn').value.trim();
+    const skuPrefix = document.getElementById('bulkImportSkuPrefix').value.trim();
+    let skuCounter = Products.list().length + 1;
+    const nextSku = () => {
+      let sku, tries = 0;
+      do { sku = `${skuPrefix}${String(skuCounter).padStart(3,'0')}`; skuCounter++; tries++; }
+      while(existingSkus.has(sku.toLowerCase()) && tries < 10000);
+      existingSkus.add(sku.toLowerCase());
+      return sku;
+    };
     const toAdd = []; let skipped = 0, invalid = 0;
     lines.forEach(line=>{
       const parts = line.split(',').map(s=>s.trim());
@@ -1186,7 +1202,9 @@ const Products = {
       if(!name || isNaN(price)){ invalid++; return; }
       if(existingNames.has(name.toLowerCase())){ skipped++; return; }
       const tax = (parts[2]!==undefined && parts[2]!=='') ? parseFloat(parts[2]) : defaultTax;
-      toAdd.push({name, price, tax: isNaN(tax)?defaultTax:tax, sku:'', hsn:'', unit:'pcs', stock:0});
+      const sku = parts[3] || nextSku();
+      const hsn = parts[4] || defaultHsn;
+      toAdd.push({name, price, tax: isNaN(tax)?defaultTax:tax, sku, hsn, unit:'pcs', stock:0});
       existingNames.add(name.toLowerCase());
     });
     if(!toAdd.length){
@@ -1210,6 +1228,40 @@ const Products = {
     }finally{
       btn.disabled = false;
     }
+  },
+  // Retroactively fills in SKU/HSN for products that were imported without them
+  // (e.g. from an earlier Bulk Import run) — re-running Bulk Import itself won't
+  // touch these, since it skips names that already exist.
+  async backfillSkuHsn(){
+    const targets = Products.list().filter(p=>!p.sku || !p.hsn);
+    if(!targets.length){ toast('Nothing to update — every product already has a SKU and HSN.'); return; }
+    const hsn = prompt(`Default HSN/SAC for the ${targets.length} product(s) missing one:`, '36041000');
+    if(hsn === null) return;
+    const skuPrefix = prompt('SKU prefix for auto-numbering products missing a SKU:', 'VC-');
+    if(skuPrefix === null) return;
+    if(!confirm(`Update ${targets.length} product(s)?`)) return;
+    const existingSkus = new Set(Products.list().map(p=>(p.sku||'').trim().toLowerCase()).filter(Boolean));
+    let skuCounter = 1;
+    const nextSku = () => {
+      let sku, tries = 0;
+      do { sku = `${skuPrefix}${String(skuCounter).padStart(3,'0')}`; skuCounter++; tries++; }
+      while(existingSkus.has(sku.toLowerCase()) && tries < 10000);
+      existingSkus.add(sku.toLowerCase());
+      return sku;
+    };
+    try{
+      for(let i=0;i<targets.length;i+=450){
+        const batch = db.batch();
+        targets.slice(i,i+450).forEach(p=>{
+          const updates = {};
+          if(!p.sku) updates.sku = nextSku();
+          if(!p.hsn) updates.hsn = hsn.trim();
+          batch.update(db.collection('products').doc(p.id), updates);
+        });
+        await batch.commit();
+      }
+      toast(`Updated ${targets.length} product(s).`);
+    }catch(err){ toast('Error: '+err.message); }
   },
   // Prints a scannable label for this product now (encodes its SKU, or its Firestore
   // doc ID if no SKU is set) — groundwork for adding camera-based scanning later.
