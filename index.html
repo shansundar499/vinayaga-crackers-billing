@@ -371,7 +371,10 @@ tr:last-child td{border-bottom:none;}
       <section id="view-products" class="view">
         <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
           <h2 class="display text-2xl font-bold">Products &amp; Services</h2>
-          <button class="btn btn-gold text-sm" onclick="Products.openForm()">+ Add Product</button>
+          <div class="flex gap-2">
+            <button class="btn-ghost btn text-sm" data-admin-only onclick="Products.openBulkImport()">📥 Bulk Import</button>
+            <button class="btn btn-gold text-sm" onclick="Products.openForm()">+ Add Product</button>
+          </div>
         </div>
         <p class="text-dim text-sm mb-5">Name, SKU, price, tax, stock.</p>
         <div class="card p-3 mb-4">
@@ -743,6 +746,59 @@ document.getElementById('connectForm').addEventListener('submit', e=>{
    ============================================================ */
 const fmt = n => '₹' + (Number(n)||0).toLocaleString('en-IN', {maximumFractionDigits:2});
 
+// Pre-fill for Products → Bulk Import, extracted from the shop's price list (the 50%
+// discount column is the actual selling price, per the owner).
+const BULK_IMPORT_PREFILL = [
+  ["7 CM E-RAMESH",15],["10 CM RAMESH NANO",25],["12 CM E",30],["12 CM C",30],["15 CM E",50],
+  ["15 CM C",50],["15 CM R",50],["15 CM G",50],["30 CM E",50],["30 CM C",50],["30 CM R",50],
+  ["30 CM G",50],["15 CM-RAMESH NANO",60],["30 CM-RAMESH NANO",60],["RSR 50 CM E",250],
+  ["50 CM E-RAMESH",275],["75 CM E-RAMESH",350],["RAMESH 15 CM E",80],["RAMESH 30 CM E",80],
+  ["RAMESH 10 CM 5 IN 1",250],["RAMESH 15 CM MAGESTIC 5 IN 1",400],["RAMESH 30 CM 3 IN 1",300],
+  ["ASOK ROTATING SPARKLERS",250],["LOVELY HEART 3PC",200],
+  ["100 WALA",40],["200 WALA",80],["300 WALA",120],["600 WALA",200],["1000 WALA-HALF",250],
+  ["2000 WALA-HALF",500],["5000 WALA-HALF",1500],["1000 WALA MEDIUM",350],["2000 WALA MEDIUM",700],
+  ["5000 WALA MEDIUM",1750],["10000 WALA MEDIUM",3500],
+  ["VAP 1000 WALA",400],["VAP 2000 WALA",800],["VAP 5000 WALA",2000],["VAP 10000 WALA",4000],
+  ["28 CHORSA",15],["56 CHORSA",30],["28 GAINT",30],["56 GAINT",60],["24 DLX",60],["50 DLX",120],
+  ["50 MEG DLX",250],["100 MEG DLX",400],["100 DLX",250],
+  ["BIM BOM",70],["TIP TOP RSR",80],["MINI PEOCOCK",150],["RK/AK DANCING PEACOCK",250],
+  ["RK/AK 5PC-PEACOCK",300],["RK 5PC- MEGA PEACOCK",400],["BADA PEAFOWL-WOW/BEEMA",600],
+  ["VEL FANCY",250],["CYLINDER BOMB",250],["MRF BAT AND BALL COLOUR",250],["AK STAR RAIN 2PC",250],
+  ["AK TWIX 5PC",250],["COLOR FOG AKS 3PC",250],["RSR OGGY/ROCK STAR",250],["CAR HELLO KITTY 3PC",350],
+  ["RK XMAS MIX",250],["RK MAYALAAL MIX",250],["INF MAD ANGLES 3",300],["INF 4 SQURE",350],
+  ["AK GOLDEN RAIN/GOLD FLY RK",200],["RK SEA LASER-MIX 250",250],["SHOWER-RSR/WOW",200],
+  ["TIN FOUNTAIN 1-PC",120],["ASOK JOLLY BOBBY TIN 3PCE",450],["RR COCKTAIL STAR (3 PCE)",360],
+  ["BAMBARA",150],["DRONE",150],["MONEY BANK 1PC",60],["MONEY BANK BIG 2PC",300],["PHOTO FLASH",100],
+  ["TWIN CRACK MIX",250],["ATLAS-SIREN GREEN 2PC",250],["SIREN 3PC",300],
+  ["SONY SNAKEFLOWER POT AND CHAKKRAS",60],
+  ["RSR F/P SMALL",80],["RSR F/P BIG",150],["ATLAS F/P BIG",150],["RSR F/P SPECIAL",200],
+  ["ATLAS F/P SPECIAL",200],["RSR F/P ASOKA",300],["RSR TRI COLOR 5PC",400],["SHIN CHAN TRI COLOR",200],
+  ["POPEYE TRI COLOR",400],["GINNIS G/C BIG",70],["GINNIS G/C SPECIAL",150],["GINNIS G/C DLX",250],
+  ["ATLAS 1.5\" T.STAR",50],["ATLAS 4\" T.STAR",100],
+  ["ROBIN VIP 10IN1 LAPTOP",275],["ROBIN VIP 10IN1 REGULAR",275],["ROBIN CLASSIC 5IN1",150],
+  ["SUPERKING SQUARE",100],["ROBIN SUPER DELUXE 10IN1",100],["SUPER DELUXE 3IN1",60],
+  ["SUPER DELUXE SMALL",40],
+  ["7 SHOT",120],["SONY 7 SHOT",260],["12 SHOT RED&GREEN/RIDER",250],["RSR 12 SHOT Crackling",300],
+  ["Chotta 1\" MIX",50],["AK/RSR- 1.5\" OUT",100],["AK- 2\" OUT",200],["RK 2\" RED JEDIX MIX 2PC",300],
+  ["RK 2\" SPIDER MAN MIX 3PC",400],["RK 2.5\" RED BALST MIX",250],["AK 2\"-3PC",350],
+  ["RSR/AK/RR 3.5\" OUT",400],["RK 4\" FRANCE MIX",450],["RSR 4\" UV SPECIAL",500],
+  ["AK 4\" NAYAGARA FALLS",500],["RK/THANIGAI 4.5\" HOT MIRCHI MIX",650],["RSR 6\" MEGA OUT",900],
+  ["SONY 4\" GOLD OCTOPUS 2PC",1400],["SONY 4.5\" MEGA OUT",1500],["SONY 5\" BIG OUT 2PC",1800],
+  ["RK 30 SHOT",600],["RK 60 SHOT",1200],["RK 120 SHOT",2400],["RK 240 SHOT",4200],
+  ["LIYA 10*10 IPL SHOT",3500],["IPL SHOT 3*10",1200],["SONY 4*5 20-SHOT",1300],
+  ["2 SOUND ROCKET",200],["WHISSLE ROCKET",200],
+  ["BLUE STAR BIGILI 50PC",25],["BLUE STAR BIGILI 100PC",50],["BIRD-KURUVI",10],
+  ["STRANDARD MACHINE BIJILI-100'S",80],["ATLAS LAKSHMI 3\"",15],["NILAS/ATLAS LAKSHMI 4\"",25],
+  ["NILAS/ATLAS LAKSHMI 4\" GOLD",40],["HULK LAKSHMI 5\"",60],["LAKSHMI 6 DELUXE\"",80],
+  ["2-SOUND",40],["TVK KING OF KING BOMB",250],["ARI MID",120],["ARI BIG",60],
+  ["1-GUN+5-RING CAP",100],["PAPER BOMB 1 KG",200],["PAPER BOMB 1/2 KG",100],
+  ["PAPER BOMB 1/4 KG",60],["COLOR BOMB",60],["ROLL CAP GOKUL",80],
+  ["16 ITEMS",300],["21 ITEMS",400],["27 ITEMS",600],["33 ITEMS",750],["42 ITEMS",1000],
+  ["54 ITEMS",1500],["ROBO-ANDROID 30 ITEMS",800],["ROBO-GALAXY 40 ITEMS",1200],
+  ["ROBO-WHATAPP 50 ITEMS",1500],["ROBO-YOYTUBE 55 ITEMS",1700],["ROBO 3.O KUTTI KIDS 28 ITEMS",850]
+].map(([n,p])=>`${n}, ${p}`).join('\n');
+
+
 // Builds a nicely formatted WhatsApp message for an order — WhatsApp has no real
 // tables, but wrapping fixed-width padded text in a ``` monospace block ``` renders
 // as an aligned table on every device, combined with *bold* section headers.
@@ -1099,6 +1155,61 @@ const Products = {
   remove(id){
     if(!confirm('Delete this product?')) return;
     db.collection('products').doc(id).delete().catch(err=>toast('Error: '+err.message));
+  },
+  // Paste-a-list bulk import — one product per line as "Name, Price" (GST% optional
+  // as a 3rd field; falls back to the shop's default GST%). Skips names that already
+  // exist so it's safe to re-run without creating duplicates.
+  openBulkImport(){
+    openModal(`
+      <h3 class="font-semibold text-lg mb-1">Bulk Import Products</h3>
+      <p class="text-dim text-xs mb-3">One product per line: <span class="mono">Name, Price</span> (optionally <span class="mono">Name, Price, GST%</span>). Products with a name that already exists are skipped — safe to re-run.</p>
+      <textarea id="bulkImportText" class="input mono" rows="14" style="font-size:12px;" placeholder="7 CM E-RAMESH, 15"></textarea>
+      <div class="flex gap-2 pt-3 items-center">
+        <button class="btn btn-gold" type="button" id="bulkImportBtn" onclick="Products.runBulkImport()">Import</button>
+        <button class="btn-ghost btn" type="button" onclick="closeModal()">Cancel</button>
+        <span id="bulkImportStatus" class="text-xs"></span>
+      </div>
+    `);
+    document.getElementById('bulkImportText').value = BULK_IMPORT_PREFILL;
+  },
+  async runBulkImport(){
+    const statusEl = document.getElementById('bulkImportStatus');
+    const btn = document.getElementById('bulkImportBtn');
+    const lines = document.getElementById('bulkImportText').value.split('\n').map(l=>l.trim()).filter(Boolean);
+    const existingNames = new Set(Products.list().map(p=>p.name.trim().toLowerCase()));
+    const defaultTax = Cache.settings.defaultTax ?? 18;
+    const toAdd = []; let skipped = 0, invalid = 0;
+    lines.forEach(line=>{
+      const parts = line.split(',').map(s=>s.trim());
+      const name = parts[0];
+      const price = parseFloat(parts[1]);
+      if(!name || isNaN(price)){ invalid++; return; }
+      if(existingNames.has(name.toLowerCase())){ skipped++; return; }
+      const tax = (parts[2]!==undefined && parts[2]!=='') ? parseFloat(parts[2]) : defaultTax;
+      toAdd.push({name, price, tax: isNaN(tax)?defaultTax:tax, sku:'', hsn:'', unit:'pcs', stock:0});
+      existingNames.add(name.toLowerCase());
+    });
+    if(!toAdd.length){
+      statusEl.textContent = invalid ? `Nothing to import (${invalid} line(s) missing a name or valid price).` : 'Nothing new to import — all names already exist.';
+      statusEl.className = 'text-ember text-xs'; return;
+    }
+    btn.disabled = true; statusEl.className = 'text-dim text-xs';
+    statusEl.textContent = `Importing ${toAdd.length} products…`;
+    try{
+      // Firestore batched writes cap at 500 ops — chunk just in case the list grows.
+      for(let i=0;i<toAdd.length;i+=450){
+        const batch = db.batch();
+        toAdd.slice(i,i+450).forEach(p=>batch.set(db.collection('products').doc(), p));
+        await batch.commit();
+      }
+      statusEl.textContent = `✅ Imported ${toAdd.length} product(s)` + (skipped?` — skipped ${skipped} already existing`:'') + (invalid?`, ${invalid} line(s) unreadable`:'') + '.';
+      statusEl.className = 'text-green text-xs';
+    }catch(err){
+      statusEl.textContent = 'Error: '+err.message;
+      statusEl.className = 'text-ember text-xs';
+    }finally{
+      btn.disabled = false;
+    }
   },
   // Prints a scannable label for this product now (encodes its SKU, or its Firestore
   // doc ID if no SKU is set) — groundwork for adding camera-based scanning later.
