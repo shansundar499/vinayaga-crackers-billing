@@ -308,6 +308,19 @@ button.pimg:hover img{transform:scale(1.05)}
   .pbody h3{min-height:0}
 }
 
+.shop-head{height:64px;min-height:64px}
+.cat-bar{position:sticky;top:64px;z-index:25;background:rgba(251,249,242,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.cat-scroll{display:flex;gap:.5rem;overflow-x:auto;max-width:1180px;margin:0 auto;padding:.6rem clamp(1rem,4vw,2.5rem);scrollbar-width:none;scroll-padding-inline:1rem}
+.cat-scroll::-webkit-scrollbar{display:none}
+.cat-chip{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:.4rem;border:1.5px solid var(--line-strong);background:#fff;color:var(--text);border-radius:999px;padding:.4rem .95rem;font-weight:600;font-size:.88rem;min-height:40px;cursor:pointer;transition:background-color .16s,border-color .16s,color .16s}
+.cat-chip small{font-weight:500;color:var(--dim);font-size:.76rem;font-variant-numeric:tabular-nums}
+.cat-chip:hover{border-color:var(--gold);color:var(--gold2)}
+.cat-chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#fff}
+.cat-chip[aria-pressed="true"] small{color:#cfe8d9}
+.cat-title{font-size:1.35rem;margin:0 0 .9rem}
+.cat-section{scroll-margin-top:8.5rem}
+.cat-section + .cat-section{margin-top:2.25rem}
+.cat-bar.hidden{display:none !important}
 </style>
 </head>
 <body>
@@ -357,9 +370,10 @@ button.pimg:hover img{transform:scale(1.05)}
           </div>
         </div>
       </section>
+      <div id="portalCatBar" class="cat-bar hidden"><nav id="portalCats" class="cat-scroll" aria-label="Product categories"></nav></div>
       <section class="shop-wrap">
-        <div class="grid-head"><h2>Our crackers</h2><span id="portalResultCount"></span></div>
-        <div id="portalProductList" class="product-grid"></div>
+        <div class="grid-head"><h2 id="portalGridTitle">Our crackers</h2><span id="portalResultCount"></span></div>
+        <div id="portalProductList"></div>
       </section>
       <div id="portalCartBar" class="cart-bar hidden">
         <div class="sum"><span id="portalBarCount">0 items</span><b id="portalBarTotal">₹0</b></div>
@@ -608,7 +622,7 @@ button.pimg:hover img{transform:scale(1.05)}
           </div>
         </div>
         <div class="card overflow-x-auto">
-          <table><thead><tr><th>Name</th><th>SKU</th><th>Price (incl. GST)</th><th></th></tr></thead>
+          <table><thead><tr><th>Name</th><th>Category</th><th>SKU</th><th>Price (incl. GST)</th><th></th></tr></thead>
           <tbody id="productTableBody"></tbody></table>
         </div>
       </section>
@@ -1043,6 +1057,15 @@ const BULK_IMPORT_PREFILL = PRODUCT_CATALOG.map(([c,n,p])=>`${n}, ${p}`).join('\
 // name (lowercased) -> category prefix, so SKUs can be assigned as SPK-001, WALA-001,
 // etc. instead of one flat sequence, for both Bulk Import and the SKU/HSN backfill tool.
 const PRODUCT_CATEGORY_PREFIX = Object.fromEntries(PRODUCT_CATALOG.map(([c,n])=>[n.trim().toLowerCase(), c+'-']));
+// Customer-facing category names for the SKU prefixes above, in the order shown on the shop.
+const PRODUCT_CATEGORY_NAMES = {SPK:'Sparklers', WALA:'Walas & Chains', FCY:'Fancy & Fountains', MAT:'Combo Packs', MSH:'Shots & Aerials', SGL:'Bombs & Singles', GFT:'Gift Boxes'};
+// A product's category: the one saved on it, else derived from the standard price list / SKU prefix
+// (so existing products are categorised without a bulk update), else '' (shown as "Other").
+function categoryOf(p){
+  if(p.category && p.category.trim()) return p.category.trim();
+  const pre = PRODUCT_CATEGORY_PREFIX[(p.name||'').trim().toLowerCase()] || ((p.sku||'').match(/^[A-Za-z]+-/)||[''])[0];
+  return PRODUCT_CATEGORY_NAMES[pre.replace('-','').toUpperCase()] || '';
+}
 
 
 // Builds a nicely formatted WhatsApp message for an order — WhatsApp has no real
@@ -1310,6 +1333,9 @@ const Products = {
           <div><label class="text-xs text-dim">SKU</label><input class="input mt-1" id="pSku" value="${p.sku||''}"></div>
           <div><label class="text-xs text-dim">HSN/SAC</label><input class="input mt-1" id="pHsn" value="${p.hsn||''}" placeholder="e.g. 36041000"></div>
         </div>
+        <div><label class="text-xs text-dim">Category <span class="font-normal">(shown to customers as a tab in the shop)</span></label>
+          <input class="input mt-1" id="pCategory" list="pCatList" value="${categoryOf(p)}" placeholder="e.g. Sparklers">
+          <datalist id="pCatList">${[...new Set([...Object.values(PRODUCT_CATEGORY_NAMES), ...Products.list().map(categoryOf).filter(Boolean)])].map(c=>`<option value="${c}">`).join('')}</datalist></div>
         <div class="grid grid-cols-2 gap-2">
           <div><label class="text-xs text-dim">Unit</label><input class="input mt-1" id="pUnit" value="${p.unit||'pcs'}" placeholder="pcs / kgs / box"></div>
           <div><label class="text-xs text-dim">Price (₹, incl. GST) *</label><input class="input mt-1" id="pPrice" type="number" step="0.01" value="${p.price||''}" required></div>
@@ -1358,7 +1384,7 @@ const Products = {
     document.getElementById('prodForm').addEventListener('submit', async e=>{
       e.preventDefault();
       const data = {name:pName.value.trim(), sku:pSku.value.trim(), hsn:pHsn.value.trim(), unit:pUnit.value.trim()||'pcs',
-        price:parseFloat(pPrice.value)||0, tax:Cache.settings.defaultTax??18,
+        category:pCategory.value.trim(), price:parseFloat(pPrice.value)||0, tax:Cache.settings.defaultTax??18,
         images: pImages, imageUrl: pImages[0]||''};
       const saveBtn = document.getElementById('prodSaveBtn');
       saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
@@ -1427,7 +1453,7 @@ const Products = {
       const tax = (parts[2]!==undefined && parts[2]!=='') ? parseFloat(parts[2]) : defaultTax;
       const sku = parts[3] || nextSku(PRODUCT_CATEGORY_PREFIX[name.toLowerCase()] || fallbackPrefix);
       const hsn = parts[4] || defaultHsn;
-      toAdd.push({name, price, tax: isNaN(tax)?defaultTax:tax, sku, hsn, unit:'pcs'});
+      toAdd.push({name, price, tax: isNaN(tax)?defaultTax:tax, sku, hsn, unit:'pcs', category: categoryOf({name, sku})});
       existingNames.add(name.toLowerCase());
     });
     if(!toAdd.length){
@@ -1520,7 +1546,7 @@ const Products = {
     const term = (document.getElementById('prodFilterText')?.value||'').trim().toLowerCase();
     let list = this.list();
     if(term) list = list.filter(p=>
-      p.name.toLowerCase().includes(term) || (p.sku||'').toLowerCase().includes(term) || (p.hsn||'').toLowerCase().includes(term)
+      p.name.toLowerCase().includes(term) || (p.sku||'').toLowerCase().includes(term) || (p.hsn||'').toLowerCase().includes(term) || categoryOf(p).toLowerCase().includes(term)
     );
     body.innerHTML = list.length ? list.map(p=>`
       <tr>
@@ -1530,6 +1556,7 @@ const Products = {
             <span>${p.name}</span>
           </div>
         </td>
+        <td class="text-dim text-sm">${categoryOf(p)||'—'}</td>
         <td class="text-dim mono text-xs">${p.sku||'—'}<br><span class="text-[10px]">HSN ${p.hsn||'—'}</span></td>
         <td>${fmt(p.price)}<span class="text-dim text-[10px]"> /${p.unit||'pcs'}</span></td>
         <td class="text-right whitespace-nowrap">
@@ -1537,7 +1564,7 @@ const Products = {
           <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Products.openForm('${p.id}')">Edit</button>
           <button class="btn-danger btn !px-2 !py-1 text-xs" onclick="Products.remove('${p.id}')">Delete</button>
         </td>
-      </tr>`).join('') : `<tr><td colspan="4" class="text-dim text-center py-8">${term?'No products match that search.':'No products yet. Add your first one.'}</td></tr>`;
+      </tr>`).join('') : `<tr><td colspan="5" class="text-dim text-center py-8">${term?'No products match that search.':'No products yet. Add your first one.'}</td></tr>`;
   }
 };
 document.getElementById('prodFilterText').addEventListener('input', ()=>Products.renderTable());
@@ -2637,6 +2664,7 @@ const Orders = {
    ============================================================ */
 const CustomerPortal = {
   cart: [],
+  cat: '',
   orderType: 'enquiry',
   _productsUnsub: null,
   _settingsLoaded: false,
@@ -2793,35 +2821,74 @@ const CustomerPortal = {
     document.getElementById('portalUpiAppLink').href = upiUri;
   },
 
+  categories(){
+    const counts = {};
+    Cache.products.forEach(p=>{ const c = categoryOf(p) || 'Other'; counts[c] = (counts[c]||0)+1; });
+    const known = Object.values(PRODUCT_CATEGORY_NAMES);
+    const rank = n => n==='Other' ? 999 : (known.indexOf(n)<0 ? 500 : known.indexOf(n));
+    return Object.keys(counts).sort((x,y)=>rank(x)-rank(y) || x.localeCompare(y)).map(name=>({name, count:counts[name]}));
+  },
+  setCategory(name){
+    this.cat = name;
+    this.renderCatalog();
+    // if the shopper is scrolled down, bring the top of the list back into view under the fixed bar
+    const top = document.getElementById('portalGridTitle').getBoundingClientRect().top + window.scrollY - 140;
+    if(window.scrollY > top) window.scrollTo({top, behavior:'smooth'});
+  },
+  renderCategoryBar(){
+    const bar = document.getElementById('portalCatBar'), nav = document.getElementById('portalCats');
+    const cats = this.categories();
+    if(cats.length < 2){ bar.classList.add('hidden'); this.cat = ''; return; }
+    if(this.cat && !cats.some(c=>c.name===this.cat)) this.cat = '';
+    bar.classList.remove('hidden');
+    const chip = (name, label, count) => `<button class="cat-chip" type="button" aria-pressed="${this.cat===name}" data-cat="${name.replace(/"/g,'&quot;')}">${label}<small>${count}</small></button>`;
+    nav.innerHTML = chip('', 'All', Cache.products.length) + cats.map(c=>chip(c.name, c.name, c.count)).join('');
+    nav.querySelectorAll('.cat-chip').forEach(b=>b.addEventListener('click', ()=>this.setCategory(b.dataset.cat)));
+    const on = nav.querySelector('[aria-pressed="true"]');
+    if(on) nav.scrollTo({left: on.offsetLeft - nav.clientWidth/2 + on.offsetWidth/2, behavior:'smooth'});
+  },
+  _productCard(p){
+    const inCart = this.cart.find(c=>c.productId===p.id);
+    const imgs = Products.images(p);
+    const media = imgs[0]
+      ? `<button class="pimg" type="button" onclick="CustomerPortal.showGallery('${p.id}')" aria-label="View photos of ${p.name}">
+           <img src="${imgs[0]}" alt="${p.name}" loading="lazy">
+           ${imgs.length>1?`<span class="pcount">${ico('image')} ${imgs.length}</span>`:''}
+         </button>`
+      : `<div class="pimg"><span class="ph">${ico('spark')}</span></div>`;
+    return `<article class="pcard">
+      ${media}
+      <div class="pbody">
+        <h3>${p.name}</h3>
+        <div class="pfoot">
+          <span class="price">${fmt(p.price)}${p.unit?` <small>/ ${p.unit}</small>`:''}</span>
+          ${inCart ? this._stepperHtml(p.id, inCart.qty) :
+            `<button class="add-btn" type="button" onclick="CustomerPortal.addToCart('${p.id}')" aria-label="Add ${p.name} to cart">${ico('plus')} Add</button>`}
+        </div>
+      </div>
+    </article>`;
+  },
   renderCatalog(){
     const wrap = document.getElementById('portalProductList');
     const count = document.getElementById('portalResultCount');
-    if(!Cache.products.length){ wrap.innerHTML = `<p class="empty" style="grid-column:1/-1">No products available right now — please check back soon.</p>`; count.textContent = ''; return; }
+    const title = document.getElementById('portalGridTitle');
+    this.renderCategoryBar();
+    if(!Cache.products.length){ wrap.innerHTML = `<p class="empty">No products available right now — please check back soon.</p>`; count.textContent = ''; return; }
     const q = (document.getElementById('portalSearch').value||'').trim().toLowerCase();
-    const list = Cache.products.filter(p=> !q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q));
+    const list = Cache.products.filter(p=>
+      (!this.cat || (categoryOf(p)||'Other')===this.cat) &&
+      (!q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q)));
+    title.textContent = this.cat || 'Our crackers';
     count.textContent = list.length + (list.length===1 ? ' product' : ' products');
-    if(!list.length){ wrap.innerHTML = `<p class="empty" style="grid-column:1/-1">No matches for "${q.replace(/</g,'&lt;')}". Try a shorter word.</p>`; return; }
-    wrap.innerHTML = list.map(p=>{
-      const inCart = this.cart.find(c=>c.productId===p.id);
-      const imgs = Products.images(p);
-      const media = imgs[0]
-        ? `<button class="pimg" type="button" onclick="CustomerPortal.showGallery('${p.id}')" aria-label="View photos of ${p.name}">
-             <img src="${imgs[0]}" alt="${p.name}" loading="lazy">
-             ${imgs.length>1?`<span class="pcount">${ico('image')} ${imgs.length}</span>`:''}
-           </button>`
-        : `<div class="pimg"><span class="ph">${ico('spark')}</span></div>`;
-      return `<article class="pcard">
-        ${media}
-        <div class="pbody">
-          <h3>${p.name}</h3>
-          <div class="pfoot">
-            <span class="price">${fmt(p.price)}${p.unit?` <small>/ ${p.unit}</small>`:''}</span>
-            ${inCart ? this._stepperHtml(p.id, inCart.qty) :
-              `<button class="add-btn" type="button" onclick="CustomerPortal.addToCart('${p.id}')" aria-label="Add ${p.name} to cart">${ico('plus')} Add</button>`}
-          </div>
-        </div>
-      </article>`;
-    }).join('');
+    if(!list.length){ wrap.innerHTML = `<p class="empty">No matches for "${q.replace(/</g,'&lt;')}"${this.cat?' in '+this.cat:''}. Try a shorter word${this.cat?' or pick All':''}.</p>`; return; }
+    const groups = {};
+    list.forEach(p=>{ (groups[categoryOf(p)||'Other'] ||= []).push(p); });
+    const names = this.categories().map(c=>c.name).filter(n=>groups[n]);
+    const showTitles = !this.cat && names.length > 1;
+    wrap.innerHTML = names.map(n=>`<section class="cat-section">
+      ${showTitles?`<h3 class="cat-title">${n}</h3>`:''}
+      <div class="product-grid">${groups[n].map(p=>this._productCard(p)).join('')}</div>
+    </section>`).join('');
   },
 
   addToCart(id){
