@@ -358,6 +358,10 @@ button.pimg:hover img{transform:scale(1.05)}
 @media(max-width:768px){.btn{min-height:44px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms !important;animation-delay:0s !important;transition-duration:.001ms !important;scroll-behavior:auto !important}}
 @media print{.sidebar,.topbar,.overlay,#toast{display:none !important}}
+.skel .pimg,.skel .sl{background:linear-gradient(100deg,var(--panel2) 30%,#fff 50%,var(--panel2) 70%);background-size:200% 100%;animation:shimmer 1.3s linear infinite}
+.skel .sl{height:12px;border-radius:6px;margin-top:.6rem}
+@keyframes shimmer{to{background-position:-200% 0}}
+.pimg img{animation:fade .5s ease both}
 /* custom display classes must still respect the .hidden toggle used by the JS */
 .cart-bar.hidden,.gate.hidden,.shop.hidden,.center-screen.hidden,.app.hidden,.cart-count.hidden,.count.hidden,.cat-bar.hidden{display:none !important}
 
@@ -991,7 +995,7 @@ function startListeners(){
     if(currentView==='dashboard') Dashboard.render();
   }, err=>toast('Sync error: '+err.message)));
   listenerUnsubs.push(db.collection('products').onSnapshot(snap=>{
-    Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(skuCompare);
     if(currentView==='products') Products.renderTable();
   }, err=>toast('Sync error: '+err.message)));
   listenerUnsubs.push(db.collection('invoices').onSnapshot(snap=>{
@@ -1219,6 +1223,11 @@ async function fitDataURLToBudget(src, budget){
   }
   return out;
 }
+// Order products by SKU the way a person reads it (SPK-2 before SPK-10); products with no SKU go last, then by name.
+const skuCompare = (a,b) => {
+  if(!!a.sku !== !!b.sku) return a.sku ? -1 : 1;
+  return (a.sku||'').localeCompare(b.sku||'', undefined, {numeric:true, sensitivity:'base'}) || (a.name||'').localeCompare(b.name||'');
+};
 const todayISO = () => new Date().toISOString().slice(0,10);
 function toast(msg){
   const t = document.getElementById('toast');
@@ -2734,9 +2743,12 @@ const CustomerPortal = {
     this.showCatalog();
     if(!this._productsUnsub){
       const listEl = document.getElementById('portalProductList');
-      listEl.innerHTML = `<p class="empty" style="grid-column:1/-1">Loading products…</p>`;
-      this._productsUnsub = db.collection('products').onSnapshot(snap=>{
-        Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      this._fullLoaded = false;
+      listEl.innerHTML = '<div class="product-grid">' + Array.from({length:8}, ()=>'<div class="pcard skel"><div class="pimg"></div><div class="sl" style="width:80%"></div><div class="sl" style="width:45%"></div></div>').join('') + '</div>';
+      this._loadLite();   // 1) names + prices only, straight away
+      this._productsUnsub = db.collection('products').onSnapshot(snap=>{   // 2) the full records with photos follow
+        this._fullLoaded = true;
+        Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(skuCompare);
         this.renderCatalog();
       }, err=>{ listEl.innerHTML = `<p class="empty text-ember" style="grid-column:1/-1">Couldn't load products — ${err.message}</p>`; });
     } else {
@@ -2890,6 +2902,29 @@ const CustomerPortal = {
     document.getElementById('portalUpiAppLink').href = upiUri;
   },
 
+  // The Firestore web SDK always downloads whole documents, photos included, so the list would wait for
+  // every photo. The REST API can return just some fields — fetch the text-only list first so the shop
+  // appears immediately; the full snapshot (with photos) then replaces it a moment later.
+  async _loadLite(){
+    try{
+      const cfg = firebase.app().options;
+      const base = 'https://firestore.googleapis.com/v1/projects/' + cfg.projectId + '/databases/(default)/documents/products';
+      const mask = ['name','sku','price','unit','tax','category'].map(f=>'mask.fieldPaths='+f).join('&');
+      const val = x => !x ? undefined : (x.stringValue !== undefined ? x.stringValue : x.integerValue !== undefined ? Number(x.integerValue) : x.doubleValue);
+      const out = []; let token = '';
+      do{
+        const res = await fetch(base + '?pageSize=300&' + mask + '&key=' + cfg.apiKey + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
+        if(!res.ok) return;
+        const j = await res.json();
+        (j.documents||[]).forEach(d=>{ const f = d.fields||{};
+          out.push({id:d.name.split('/').pop(), name:val(f.name)||'', sku:val(f.sku)||'', price:Number(val(f.price))||0, unit:val(f.unit)||'', tax:val(f.tax), category:val(f.category)||''}); });
+        token = j.nextPageToken || '';
+      }while(token);
+      if(this._fullLoaded || !out.length) return;      // the full list already arrived first
+      Cache.products = out.sort(skuCompare);
+      this.renderCatalog();
+    }catch(e){ /* blocked or offline — the normal full load below still works */ }
+  },
   categories(){
     const counts = {};
     Cache.products.forEach(p=>{ const c = categoryOf(p) || 'Other'; counts[c] = (counts[c]||0)+1; });
