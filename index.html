@@ -1202,6 +1202,23 @@ function resizeImageToDataURL(file, maxDim, quality){
     reader.readAsDataURL(file);
   });
 }
+const loadImage = src => new Promise((res,rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = src; });
+function drawScaled(img, maxDim, quality){
+  let w = img.naturalWidth, h = img.naturalHeight;
+  if(w > maxDim || h > maxDim){ if(w > h){ h = Math.round(h*maxDim/w); w = maxDim; } else { w = Math.round(w*maxDim/h); h = maxDim; } }
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', quality);
+}
+const reencodeDataURL = async (src, maxDim, quality) => drawScaled(await loadImage(src), maxDim, quality);
+// Sharpest JPEG (up to 1600px) from a master image that still fits a size budget (characters of data URL).
+async function fitDataURLToBudget(src, budget){
+  const img = await loadImage(src); let out = src;
+  for(const d of [1600,1400,1200,1000,860,720]) for(const q of [.86,.78,.7,.62]){
+    out = drawScaled(img, d, q); if(out.length <= budget) return out;
+  }
+  return out;
+}
 const todayISO = () => new Date().toISOString().slice(0,10);
 function toast(msg){
   const t = document.getElementById('toast');
@@ -1399,8 +1416,17 @@ const Products = {
   images(p){ return (p.images && p.images.length) ? p.images : (p.imageUrl ? [p.imageUrl] : []); },
   openForm(id){
     const p = id ? this.list().find(x=>x.id===id) : {name:'',sku:'',hsn:'',unit:'pcs',price:''};
-    const pImages = [...Products.images(p)];
+    const pImages = [...Products.images(p)];     // small thumbnails stored on the product (fast shop grid)
+    const pHi = pImages.map(()=>null);             // matching high-quality copies, stored in productPhotos/{id}
+    let hadHiDoc = false;
     const MAX_IMAGES = 6;
+    if(id){
+      db.collection('productPhotos').doc(id).get().then(d=>{
+        if(!d.exists) return;
+        hadHiDoc = true;
+        (d.data().images||[]).forEach((h,i)=>{ if(h && i < pHi.length && !pHi[i]) pHi[i] = {src:h, fitted:true}; });
+      }).catch(()=>{ /* rules not added yet — photos just stay standard quality */ });
+    }
     openModal(`
       <h3 class="font-semibold text-lg mb-4">${id?'Edit':'Add'} Product / Service</h3>
       <form id="prodForm" class="space-y-3">
@@ -1418,7 +1444,7 @@ const Products = {
         </div>
         <p class="text-dim text-[11px]">Enter the selling price you actually charge — GST (${Cache.settings.defaultTax??18}%) is already included in it. The invoice backs out the taxable value and splits GST into CGST + SGST automatically.</p>
         <div>
-          <label class="text-xs text-dim">Photos <span class="font-normal">(shown to customers in the ordering portal — first one is the cover photo, up to ${MAX_IMAGES})</span></label>
+          <label class="text-xs text-dim">Photos <span class="font-normal">(shown to customers in the ordering portal — first one is the cover photo, up to ${MAX_IMAGES}). Use clear, well-lit photos; customers see a high-quality version when they tap one.</span></label>
           <div id="pImageGrid" class="flex flex-wrap gap-2 mt-1"></div>
           <input type="file" accept="image/*" multiple id="pImageFile" class="input mt-2">
           <p id="pImageStatus" class="text-dim text-[11px] mt-1"></p>
@@ -1439,7 +1465,7 @@ const Products = {
         </div>`).join('') || `<p class="text-dim text-xs">No photos yet.</p>`;
       document.getElementById('pImageFile').disabled = pImages.length >= MAX_IMAGES;
     };
-    Products._removeImageAt = (i) => { pImages.splice(i,1); renderGrid(); };
+    Products._removeImageAt = (i) => { pImages.splice(i,1); pHi.splice(i,1); renderGrid(); };
     renderGrid();
 
     document.getElementById('pImageFile').addEventListener('change', async e=>{
@@ -1449,11 +1475,12 @@ const Products = {
       statusEl.textContent = `Preparing ${files.length} image(s)…`;
       try{
         for(const file of files){
-          const dataUrl = await resizeImageToDataURL(file, 480, 0.6);
-          pImages.push(dataUrl);
+          const master = await resizeImageToDataURL(file, 1600, 0.9);        // kept in memory, fitted to the size budget on save
+          pImages.push(await reencodeDataURL(master, 480, 0.62));
+          pHi.push({src:master, fitted:false});
         }
         renderGrid();
-        statusEl.textContent = `${pImages.length} photo(s) ready — will save with the product.`;
+        statusEl.textContent = `${pImages.length} photo(s) ready — saved in high quality with the product.`;
       }catch(err){ statusEl.textContent = "Couldn't read one of those images."; }
       e.target.value = '';
     });
@@ -1465,10 +1492,21 @@ const Products = {
       const saveBtn = document.getElementById('prodSaveBtn');
       saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
       try{
-        if(id){ await db.collection('products').doc(id).update(data); }
-        else { await db.collection('products').add(data); }
+        const ref = id ? db.collection('products').doc(id) : db.collection('products').doc();
+        if(id){ await ref.update(data); } else { await ref.set(data); }
+        // High-quality copies live in their own collection so the shop's product list stays light and fast.
+        let hiNote = '';
+        try{
+          const fresh = pHi.filter(h=>h && !h.fitted);
+          const kept = pHi.reduce((n,h)=> n + (h && h.fitted ? h.src.length : 0), 0);
+          const per = fresh.length ? Math.max(60000, Math.floor((880000 - kept)/fresh.length)) : 0;   // one Firestore doc must stay under 1 MB
+          for(const h of fresh){ h.src = await fitDataURLToBudget(h.src, per); h.fitted = true; }
+          const hi = pHi.map(h=> h ? h.src : '');
+          if(hi.some(Boolean)) await db.collection('productPhotos').doc(ref.id).set({images:hi, updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+          else if(hadHiDoc) await db.collection('productPhotos').doc(ref.id).delete();
+        }catch(err){ hiNote = " — high-quality photos were NOT saved ("+err.message+"). Add the productPhotos rule in Firebase, then save again."; }
         closeModal();
-        toast('Product saved');
+        toast('Product saved'+hiNote);
       }catch(err){ toast('Error: '+err.message); }
       finally{ saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
     });
@@ -1476,6 +1514,7 @@ const Products = {
   remove(id){
     if(!confirm('Delete this product?')) return;
     db.collection('products').doc(id).delete().catch(err=>toast('Error: '+err.message));
+    db.collection('productPhotos').doc(id).delete().catch(()=>{});
   },
   // Paste-a-list bulk import — one product per line as "Name, Price" (GST% optional
   // as a 3rd field; falls back to the shop's default GST%). Skips names that already
@@ -2759,6 +2798,17 @@ const CustomerPortal = {
       if(e.key==='ArrowLeft'){ e.preventDefault(); this.galStep(-1); }
     });
     track.focus({preventScroll:true});
+    this._loadHiPhotos(productId);
+  },
+  _hiCache: {},
+  // The grid uses small thumbnails; the pop-up fetches the full-quality copies on demand and swaps them in.
+  async _loadHiPhotos(id){
+    try{
+      let hi = this._hiCache[id];
+      if(!hi){ const d = await db.collection('productPhotos').doc(id).get(); hi = d.exists ? (d.data().images||[]) : []; this._hiCache[id] = hi; }
+      if(this._galId !== id) return;
+      document.querySelectorAll('.gal-slide img').forEach((im,i)=>{ if(hi[i]) im.src = hi[i]; });
+    }catch(e){ /* rule not added yet / offline — the standard photos stay */ }
   },
   galStep(d){ const t = document.getElementById('galTrack'); if(t) t.scrollBy({left:d*t.clientWidth, behavior:'smooth'}); },
   galGo(i){ const t = document.getElementById('galTrack'); if(t) t.scrollTo({left:i*t.clientWidth, behavior:'smooth'}); },
