@@ -511,6 +511,14 @@ body.glass-staff .overlay.open{background:rgba(15,42,58,.4)}
   body.glass-staff .sidebar,body.glass-staff .card,body.glass-staff .kpi{background:rgba(255,255,255,.9)}
 }
 
+.pcard .pbox .price{font-size:1.45rem}.pcard .pbox .price small{font-size:.74rem}
+.pbox{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mrp{font-size:.8rem;color:var(--dim);line-height:1.3}
+.mrp s{text-decoration-thickness:1.5px}
+.mrp .off{color:var(--green);font-weight:700;margin-left:.15rem;white-space:nowrap}
+.mrp-inline s{text-decoration-thickness:1.5px}
+.save-line{margin-top:.6rem;font-size:.85rem;color:var(--green);font-weight:600}
+.save-line.hidden{display:none !important}
 /* custom display classes must still respect the .hidden toggle used by the JS */
 .cart-bar.hidden,.gate.hidden,.shop.hidden,.center-screen.hidden,.app.hidden,.cart-count.hidden,.count.hidden,.cat-bar.hidden{display:none !important}
 
@@ -586,6 +594,7 @@ body.glass-staff .overlay.open{background:rgba(15,42,58,.4)}
         <div class="card p-5">
           <div id="portalCartItems"></div>
           <div class="total-row"><span class="lbl">Total</span><span class="amt" id="portalCartTotal">₹0</span></div>
+          <p id="portalSaveLine" class="save-line hidden"></p>
           <p class="text-dim text-xs mt-2">Prices include GST.</p>
         </div>
 
@@ -1225,6 +1234,9 @@ document.getElementById('connectForm').addEventListener('submit', e=>{
 /* ============================================================
    HELPERS
    ============================================================ */
+const MRP_FACTOR = 2;   // price list = 50% off, so MRP = 2 x selling price (display only, customer shop)
+const mrpOf = price => Math.round((Number(price)||0) * MRP_FACTOR * 100) / 100;
+const mrpLine = price => (Number(price)||0) > 0 ? `<span class="mrp">M.R.P: <s>${fmt(mrpOf(price))}</s> <b class="off">${Math.round((1 - 1/MRP_FACTOR)*100)}% off</b></span>` : '';
 const fmt = n => '₹' + (Number(n)||0).toLocaleString('en-IN', {maximumFractionDigits:2});
 
 // Pre-fill for Products → Bulk Import, extracted from the shop's price list (the 50%
@@ -2952,7 +2964,7 @@ const CustomerPortal = {
         </div>
         ${n>1?`<div class="gal-thumbs">${imgs.map((src,i)=>`<button class="gal-thumb${i===0?' on':''}" type="button" onclick="CustomerPortal.galGo(${i})" aria-label="Show photo ${i+1}"><img src="${src}" alt=""></button>`).join('')}</div>`:''}
         <div class="gal-info">
-          <div><h3>${p.name}</h3><p class="price mt-1">${fmt(p.price)}${p.unit?` <small>/ ${p.unit}</small>`:''}</p></div>
+          <div><h3>${p.name}</h3><div class="pbox mt-1"><span class="price">${fmt(p.price)}${p.unit?` <small>/ ${p.unit}</small>`:''}</span>${mrpLine(p.price)}</div></div>
           <div id="galAction"></div>
         </div>
       </div>`, {flush:true});
@@ -3119,7 +3131,7 @@ const CustomerPortal = {
       <div class="pbody">
         <h3>${p.name}</h3>
         <div class="pfoot">
-          <span class="price">${fmt(p.price)}${p.unit?` <small>/ ${p.unit}</small>`:''}</span>
+          <span class="pbox"><span class="price">${fmt(p.price)}${p.unit?` <small>/ ${p.unit}</small>`:''}</span>${mrpLine(p.price)}</span>
           ${inCart ? this._stepperHtml(p.id, inCart.qty) :
             `<button class="add-btn" type="button" onclick="CustomerPortal.addToCart('${p.id}')" aria-label="Add ${p.name} to cart">${ico('plus')} Add</button>`}
         </div>
@@ -3197,7 +3209,7 @@ const CustomerPortal = {
         ${img ? `<img class="thumb" src="${img}" alt="">` : `<span class="thumb">${ico('spark')}</span>`}
         <div class="min-w-0">
           <p class="nm">${c.name}</p>
-          <p class="sub">${fmt(c.price)} each</p>
+          <p class="sub">${fmt(c.price)} each · <span class="mrp-inline">M.R.P <s>${fmt(mrpOf(c.price))}</s></span></p>
           <div class="flex items-center gap-2 mt-1.5">
             ${this._stepperHtml(c.productId, c.qty)}
             <button class="rm" type="button" onclick="CustomerPortal.removeFromCart('${c.productId}')">${ico('trash')} Remove</button>
@@ -3207,6 +3219,9 @@ const CustomerPortal = {
       </div>`;
     }).join('') : `<p class="empty">Your cart is empty. Go back and add something.</p>`;
     document.getElementById('portalCartTotal').textContent = fmt(this.cartTotal());
+    const save = document.getElementById('portalSaveLine'), t = this.cartTotal();
+    save.classList.toggle('hidden', !t);
+    if(t) save.innerHTML = `You save <b>${fmt(mrpOf(t) - t)}</b> on the M.R.P of ${fmt(mrpOf(t))}`;
     if(this.orderType==='pay') this.renderUpiPayment();
   },
 
