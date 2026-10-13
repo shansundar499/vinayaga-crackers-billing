@@ -3177,6 +3177,17 @@ const CustomerPortal = {
     const on = nav.querySelector('[aria-pressed="true"]');
     if(on) nav.scrollTo({left: on.offsetLeft - nav.clientWidth/2 + on.offsetWidth/2, behavior:'smooth'});
   },
+  _cardCtrl(p, inCart){
+    return inCart ? this._stepperHtml(p.id, inCart.qty) :
+      `<button class="add-btn" type="button" onclick="CustomerPortal.addToCart('${p.id}')" aria-label="Add ${p.name} to cart">${ico('plus')} Add</button>`;
+  },
+  // Update only the tapped card's Add/stepper control so the photos are not rebuilt (that made them flash white).
+  _syncCard(id){
+    const p = Cache.products.find(x=>x.id===id);
+    const foot = document.querySelector('.pcard[data-pid="'+id+'"] .pfoot');
+    if(!p || !foot){ this.renderCatalog(); return; }
+    foot.lastElementChild.outerHTML = this._cardCtrl(p, this.cart.find(c=>c.productId===id));
+  },
   _productCard(p, i=0){
     const inCart = this.cart.find(c=>c.productId===p.id);
     const imgs = Products.images(p);
@@ -3186,14 +3197,13 @@ const CustomerPortal = {
            ${imgs.length>1?`<span class="pcount">${ico('image')} ${imgs.length}</span>`:''}
          </button>`
       : `<div class="pimg"><span class="ph">${ico('spark')}</span></div>`;
-    return `<article class="pcard" style="--i:${Math.min(i,12)}">
+    return `<article class="pcard" data-pid="${p.id}" style="--i:${Math.min(i,12)}">
       ${media}
       <div class="pbody">
         <h3>${p.name}</h3>
         <div class="pfoot">
           <span class="pbox"><span class="price">${fmt(p.price)}${p.unit?` <small>/ ${p.unit}</small>`:''}</span>${mrpLine(p.price)}</span>
-          ${inCart ? this._stepperHtml(p.id, inCart.qty) :
-            `<button class="add-btn" type="button" onclick="CustomerPortal.addToCart('${p.id}')" aria-label="Add ${p.name} to cart">${ico('plus')} Add</button>`}
+          ${this._cardCtrl(p, inCart)}
         </div>
       </div>
     </article>`;
@@ -3228,18 +3238,18 @@ const CustomerPortal = {
     const existing = this.cart.find(c=>c.productId===id);
     if(existing){ existing.qty += 1; }
     else { this.cart.push({productId:id, name:p.name, price:p.price, tax:p.tax??(Cache.settings.defaultTax??18), unit:p.unit||'', qty:1}); }
-    this.updateCartBadge(); this.renderCatalog(); this._refreshGalAction();
+    this.updateCartBadge(); this._syncCard(id); this._refreshGalAction();
   },
   changeQty(id, delta){
     const item = this.cart.find(c=>c.productId===id);
     if(!item) return;
     item.qty += delta;
     if(item.qty<=0) this.cart = this.cart.filter(c=>c.productId!==id);
-    this.updateCartBadge(); this.renderCatalog(); this.renderCart(); this._refreshGalAction();
+    this.updateCartBadge(); this._syncCard(id); this.renderCart(); this._refreshGalAction();
   },
   removeFromCart(id){
     this.cart = this.cart.filter(c=>c.productId!==id);
-    this.updateCartBadge(); this.renderCatalog(); this.renderCart();
+    this.updateCartBadge(); this._syncCard(id); this.renderCart();
   },
   updateCartBadge(){
     const count = this.cart.reduce((s,c)=>s+c.qty,0);
