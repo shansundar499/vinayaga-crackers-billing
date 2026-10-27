@@ -1987,7 +1987,7 @@ const Invoices = {
     const productName = pid => (products.find(p=>p.id===pid)||{}).name || '';
     const rowHtml = (it, idx) => `
       <div class="item-row border border-line rounded-lg p-2 space-y-2 md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-12 md:gap-2 md:items-center" data-idx="${idx}">
-        <div class="relative product-picker md:col-span-6">
+        <div class="relative product-picker md:col-span-4">
           <input type="hidden" class="item-product" value="${it.productId||''}">
           <input class="input item-product-search" placeholder="Search product…" autocomplete="off" value="${productName(it.productId)}">
           <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
@@ -1998,7 +1998,8 @@ const Invoices = {
             <input class="input item-qty !text-center !px-0.5 min-w-0" type="number" min="1" value="${it.qty||1}">
             <button type="button" class="btn-ghost btn !px-2.5 !py-1.5 shrink-0" onclick="Invoices.stepQty(this,1)">+</button>
           </div>
-          <input class="input col-span-5 md:col-span-2 item-price" type="number" step="0.01" value="${it.price??''}" placeholder="Price">
+          <input class="input col-span-6 md:col-span-2 item-price" type="number" step="0.01" value="${it.price??''}" placeholder="Price">
+          <div class="col-span-11 md:col-span-2 text-right font-semibold text-sm item-total">₹0</div>
           <button type="button" class="col-span-1 text-ember text-lg justify-self-end" onclick="this.closest('.item-row').remove(); Invoices.recalc();" aria-label="Remove item">${ico('close')}</button>
         </div>
       </div>`;
@@ -2253,7 +2254,7 @@ const Invoices = {
   addItemRow(){
     const wrap = document.createElement('div');
     wrap.innerHTML = `<div class="item-row border border-line rounded-lg p-2 space-y-2 md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-12 md:gap-2 md:items-center">
-      <div class="relative product-picker md:col-span-6">
+      <div class="relative product-picker md:col-span-4">
         <input type="hidden" class="item-product" value="">
         <input class="input item-product-search" placeholder="Search product…" autocomplete="off">
         <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
@@ -2264,7 +2265,8 @@ const Invoices = {
           <input class="input item-qty !text-center !px-0.5 min-w-0" type="number" min="1" value="1">
           <button type="button" class="btn-ghost btn !px-2.5 !py-1.5 shrink-0" onclick="Invoices.stepQty(this,1)">+</button>
         </div>
-        <input class="input col-span-5 md:col-span-2 item-price" type="number" step="0.01" placeholder="Price">
+        <input class="input col-span-6 md:col-span-2 item-price" type="number" step="0.01" placeholder="Price">
+        <div class="col-span-11 md:col-span-2 text-right font-semibold text-sm item-total">₹0</div>
         <button type="button" class="col-span-1 text-ember text-lg justify-self-end" onclick="this.closest('.item-row').remove(); Invoices.recalc();" aria-label="Remove item">${ico('close')}</button>
       </div>
     </div>`;
@@ -2324,6 +2326,7 @@ const Invoices = {
       price: parseFloat(r.querySelector('.item-price').value)||0,
       tax: gstPercent
     }));
+    rows.forEach((r,i)=>{ r.querySelector('.item-total').textContent = fmt(items[i].qty*items[i].price); });
     const discount = {type: document.getElementById('iDiscountType').value, value: parseFloat(document.getElementById('iDiscountValue').value)||0};
     const deliveryCharge = parseFloat(document.getElementById('iDeliveryCharge').value)||0;
     const {itemsTotal, discountAmt, total} = Invoices.computeTotals(items, discount, deliveryCharge);
