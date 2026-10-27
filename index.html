@@ -2518,6 +2518,10 @@ const Invoices = {
     });
     y = doc.lastAutoTable.finalY + 5;
 
+    // Totals, bank box and signature must stay whole: if they don't fit below the table, start a new page.
+    const trailerH = 8+8+6+26+8 + 5.5*((inv.discountAmt?1:0)+(inv.deliveryCharge?1:0)+(inv.roundOff?1:0));
+    if(y + trailerH > 292){ doc.addPage(); y = 15; }
+
     // --- Discount / delivery / grand total breakdown (only shown if applicable) ---
     doc.setFontSize(9);
     if(inv.discountAmt){
