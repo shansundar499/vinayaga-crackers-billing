@@ -922,10 +922,20 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
                 <select class="input" id="setReceiptWidth">
                   <option value="56">56 mm</option>
                   <option value="58">58 mm</option>
+                  <option value="58L">58 mm — large bold text</option>
                   <option value="80">80 mm</option>
                   <option value="100">100 mm</option>
                 </select>
                 <p class="text-dim text-xs mt-1">For the roller-printer receipt format.</p>
+              </div>
+              <div><label class="field-label" for="setDefaultBill">Default bill action</label>
+                <select class="input" id="setDefaultBill">
+                  <option value="printReceipt">Print Receipt</option>
+                  <option value="downloadReceipt">Download Receipt</option>
+                  <option value="printPdf">Print Full Invoice</option>
+                  <option value="downloadPdf">Download Full Invoice</option>
+                </select>
+                <p class="text-dim text-xs mt-1">Pre-selected in the invoice's action menu (you can still change it per invoice).</p>
               </div>
               <div class="flex items-center gap-3"><button class="btn btn-gold text-sm" type="submit">Save Settings</button>
               <span id="settingsSaved" class="text-green text-sm hidden inline-flex items-center gap-1"><svg class="ic"><use href="#i-check"/></svg> Saved</span></div>
@@ -1208,7 +1218,7 @@ function startListeners(){
     if(currentView==='dashboard') Dashboard.render();
   }, err=>toast('Sync error: '+err.message)));
   listenerUnsubs.push(db.collection('products').onSnapshot(snap=>{
-    Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(skuCompare);
+    Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(productCompare);
     if(currentView==='products') Products.renderTable();
   }, err=>toast('Sync error: '+err.message)));
   listenerUnsubs.push(db.collection('invoices').onSnapshot(snap=>{
@@ -1452,6 +1462,9 @@ const skuCompare = (a,b) => {
   if(!!a.sku !== !!b.sku) return a.sku ? -1 : 1;
   return (a.sku||'').localeCompare(b.sku||'', undefined, {numeric:true, sensitivity:'base'}) || (a.name||'').localeCompare(b.name||'');
 };
+// Same order as the customer shop: Sparklers first, then Walas, and so on (known categories in list order, others A-Z, "Other" last), then by SKU.
+const categoryRank = p => { const c = categoryOf(p) || 'Other', known = Object.values(PRODUCT_CATEGORY_NAMES); return c==='Other' ? 999 : (known.indexOf(c)<0 ? 500 : known.indexOf(c)); };
+const productCompare = (a,b) => categoryRank(a)-categoryRank(b) || (categoryOf(a)||'').localeCompare(categoryOf(b)||'') || skuCompare(a,b);
 const todayISO = () => new Date().toISOString().slice(0,10);
 function toast(msg){
   const t = document.getElementById('toast');
@@ -2099,10 +2112,8 @@ const Invoices = {
           <button class="btn btn-gold" type="submit">Save Invoice</button>
           ${inv?`
             <select class="input !w-auto" id="invPrintAction">
-              <option value="printReceipt" selected>Print Receipt</option>
-              <option value="downloadReceipt">Download Receipt</option>
-              <option value="printPdf">Print Full Invoice</option>
-              <option value="downloadPdf">Download Full Invoice</option>
+              ${[['printReceipt','Print Receipt'],['downloadReceipt','Download Receipt'],['printPdf','Print Full Invoice'],['downloadPdf','Download Full Invoice']]
+                .map(([v,l])=>`<option value="${v}"${(Cache.settings.defaultBill||'printReceipt')===v?' selected':''}>${l}</option>`).join('')}
             </select>
             <button class="btn btn-ghost" type="button" onclick="Invoices.runPrintAction('${inv.id}')">Go</button>
           `:''}
@@ -2700,9 +2711,12 @@ const Invoices = {
     }
   },
 
-  drawReceiptContent(doc, inv, cust, s, widthMM){
-    const mX = 3, contentW = widthMM - mX*2;
-    const rupee = n => 'Rs. ' + (Number(n)||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  drawReceiptContent(doc, inv, cust, s, widthMM, big){
+    const narrow = !!big, k = narrow ? 1.3 : 1;      // "58 mm large" option only: bigger, bolder text so it prints clearly; every other width is unchanged
+    const mX = narrow ? 2 : 3, contentW = widthMM - mX*2;
+    const money = n => (Number(n)||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const rupee = n => (narrow ? '' : 'Rs. ') + money(n);   // narrow: the Amount header says (Rs.) instead
+    doc.setTextColor(0,0,0);
     let y = 6;
 
     // Logo up top if available (practical branding, not "decoration") — falls back to
@@ -2714,94 +2728,120 @@ const Invoices = {
       doc.addImage(logoImg.src, 'PNG', widthMM/2 - logoW/2, y, logoW, logoH);
       y += logoH + 6;
     } else {
-      doc.setFont('helvetica','bold'); doc.setFontSize(11);
-      doc.text(s.bizName || 'Your Business', widthMM/2, y, {align:'center'}); y += 4.5;
+      doc.setFont('helvetica','bold'); doc.setFontSize(11*k);
+      doc.text(s.bizName || 'Your Business', widthMM/2, y, {align:'center'}); y += 4.5*k;
     }
-    doc.setFont('helvetica','normal'); doc.setFontSize(7);
-    if(s.address){ const lines = doc.splitTextToSize(s.address, contentW); doc.text(lines, widthMM/2, y, {align:'center'}); y += lines.length*3; }
-    if(s.phone){ doc.text('Ph: '+s.phone, widthMM/2, y, {align:'center'}); y += 3.2; }
-    if(s.gstin){ doc.text('GSTIN/UIN: '+s.gstin, widthMM/2, y, {align:'center'}); y += 3.2; }
-    if(s.stateName){ doc.text(`State: ${s.stateName}${s.stateCode?', Code: '+s.stateCode:''}`, widthMM/2, y, {align:'center'}); y += 3.2; }
-    y += 1.5;
-    doc.setFont('helvetica','bold'); doc.setFontSize(8);
-    doc.text('INVOICE', widthMM/2, y, {align:'center'}); y += 3.8;
-    doc.setLineDashPattern([0.6,0.6],0); doc.line(mX,y,widthMM-mX,y); doc.setLineDashPattern([],0); y += 3.2;
+    doc.setFont('helvetica','normal'); doc.setFontSize(7*k);
+    if(s.address){ const lines = doc.splitTextToSize(s.address, contentW); doc.text(lines, widthMM/2, y, {align:'center'}); y += lines.length*3*k; }
+    if(s.phone){ doc.text('Ph: '+s.phone, widthMM/2, y, {align:'center'}); y += 3.2*k; }
+    if(s.gstin){ doc.text('GSTIN/UIN: '+s.gstin, widthMM/2, y, {align:'center'}); y += 3.2*k; }
+    if(s.stateName){ doc.text(`State: ${s.stateName}${s.stateCode?', Code: '+s.stateCode:''}`, widthMM/2, y, {align:'center'}); y += 3.2*k; }
+    y += 1.5*k;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8*k);
+    doc.text('INVOICE', widthMM/2, y, {align:'center'}); y += 3.8*k;
+    doc.setLineDashPattern([0.6,0.6],0); doc.line(mX,y,widthMM-mX,y); doc.setLineDashPattern([],0); y += 3.2*k;
 
-    doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7*k);
     doc.text('Bill No: '+inv.invoiceNo, mX, y);
-    doc.text(inv.date, widthMM-mX, y, {align:'right'}); y += 3.6;
-    doc.text('Time: '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), mX, y); y += 3.6;
-    doc.text('Customer: '+cust.name, mX, y); y += 3.6;
-    if(cust.phone){ doc.text('Ph: '+cust.phone, mX, y); y += 3.6; }
-    doc.line(mX,y,widthMM-mX,y); y += 3.5;
+    doc.text(inv.date, widthMM-mX, y, {align:'right'}); y += 3.6*k;
+    doc.text('Time: '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), mX, y); y += 3.6*k;
+    doc.text('Customer: '+cust.name, mX, y); y += 3.6*k;
+    if(cust.phone){ doc.text('Ph: '+cust.phone, mX, y); y += 3.6*k; }
+    doc.line(mX,y,widthMM-mX,y); y += 3.5*k;
 
+    if(narrow){
+      // "58 mm large": item numbers in their own column on the left; the product name on one line (shrunk to
+      // fit if long), then "qty x price" under it and the amount on the right of that second line.
+      const L = mX+1, Rr = widthMM-mX-1, NX = L + 7;      // NX = where the product text starts
+      doc.setFont('helvetica','bold'); doc.setFontSize(6.8*k);
+      doc.text('#', L, y+2.6); doc.text('Product', NX, y+2.6); doc.text('Amount (Rs.)', Rr, y+2.6, {align:'right'});
+      y += 4; doc.setDrawColor(0); doc.setLineWidth(0.15); doc.line(mX,y,widthMM-mX,y); y += 1;
+      inv.items.forEach((it,i)=>{
+        let fs = 6.5*k; doc.setFont('helvetica','bold'); doc.setFontSize(fs);
+        while(fs>5 && doc.getTextWidth(it.name)>Rr-NX){ fs -= 0.2; doc.setFontSize(fs); }
+        const lines = doc.splitTextToSize(it.name, Rr-NX);   // only wraps if even the smallest size does not fit
+        const top = y + 3.4;
+        doc.setFontSize(6.5*k); doc.text(String(i+1), L, top);
+        doc.setFontSize(fs);
+        lines.forEach(ln=>{ y += 3.4; doc.text(ln, NX, y); });
+        doc.setFontSize(6.5*k);
+        y += 3.4;
+        doc.text(`${it.qty} ${it.unit||''} x ${money(it.price)}`, NX, y);
+        doc.text(money(it.qty*it.price), Rr, y+1.5, {align:'right'});   // amount sits a little below the description lines
+        y += 3.2;
+        if(i < inv.items.length-1){ doc.setLineDashPattern([0.4,0.6],0); doc.setLineWidth(0.1); doc.line(mX,y,widthMM-mX,y); doc.setLineDashPattern([],0); doc.setLineWidth(0.15); y += 1; }
+      });
+      doc.line(mX,y,widthMM-mX,y);
+      y += 3.8*k;
+    } else {
     // Sl / Product (name + qty x price) / Amount — a real 3-column table via autoTable,
-    // which wraps text safely within each column regardless of receipt width, instead
-    // of manually positioned text that could collide at narrow widths.
-    doc.autoTable({
-      startY: y,
-      margin:{left:mX, right:mX},
-      head: [['Sl','Product',{content:'Amount', styles:{halign:'right'}}]],
-      body: inv.items.map((it,i)=>[
-        i+1,
-        `${it.name}\n${it.qty} ${it.unit||''} x ${rupee(it.price)}`,
-        rupee(it.qty*it.price)
-      ]),
-      styles:{fontSize:6.5, cellPadding:{top:1,right:1,bottom:1,left:1}, textColor:[0,0,0], lineWidth:0},
-      headStyles:{fontSize:6.8, fontStyle:'bold', fillColor:[255,255,255], textColor:[0,0,0]},
-      columnStyles:{
-        0:{cellWidth:contentW*0.07, cellPadding:{top:1,right:0.3,bottom:1,left:1}},
-        1:{cellWidth:contentW*0.61, cellPadding:{top:1,right:1,bottom:1,left:0.6}},
-        2:{cellWidth:contentW*0.32, halign:'right', fontStyle:'bold'}
-      },
-      theme:'plain',
-      didDrawCell: data=>{
-        // Header underline, and a closing line under the last item row — no lines
-        // between individual items, matching the rest of the receipt's plain style.
-        if(data.row.section==='head' || (data.row.section==='body' && data.row.index===data.table.body.length-1)){
-          doc.setDrawColor(0); doc.setLineWidth(0.15);
-          doc.line(data.cell.x, data.cell.y+data.cell.height, data.cell.x+data.cell.width, data.cell.y+data.cell.height);
+      // which wraps text safely within each column regardless of receipt width, instead
+      // of manually positioned text that could collide at narrow widths.
+      doc.autoTable({
+        startY: y,
+        margin:{left:mX, right:mX},
+        head: [[narrow?'#':'Sl','Product',{content:narrow?'Amount (Rs.)':'Amount', styles:{halign:'right'}}]],
+        body: inv.items.map((it,i)=>[
+          i+1,
+          `${it.name}\n${it.qty} ${it.unit||''} x ${rupee(it.price)}`,
+          rupee(it.qty*it.price)
+        ]),
+        styles:{fontSize:6.5*k, cellPadding:{top:1,right:1,bottom:1,left:1}, textColor:[0,0,0], lineWidth:0, fontStyle:narrow?'bold':'normal'},
+        headStyles:{fontSize:6.8*k, fontStyle:'bold', fillColor:[255,255,255], textColor:[0,0,0]},
+        columnStyles:{
+          0:{cellWidth:contentW*(narrow?0.1:0.07), cellPadding:{top:1,right:0.3,bottom:1,left:1}},
+          1:{cellWidth:contentW*(narrow?0.52:0.61), cellPadding:{top:1,right:1,bottom:1,left:0.6}},
+          2:{cellWidth:contentW*(narrow?0.38:0.32), halign:'right', fontStyle:'bold'}
+        },
+        theme:'plain',
+        didDrawCell: data=>{
+          // Header underline, and a closing line under the last item row — no lines
+          // between individual items, matching the rest of the receipt's plain style.
+          if(data.row.section==='head' || (data.row.section==='body' && data.row.index===data.table.body.length-1)){
+            doc.setDrawColor(0); doc.setLineWidth(0.15);
+            doc.line(data.cell.x, data.cell.y+data.cell.height, data.cell.x+data.cell.width, data.cell.y+data.cell.height);
+          }
         }
-      }
-    });
-    y = doc.lastAutoTable.finalY + 3.8;
+      });
+      y = doc.lastAutoTable.finalY + 3.8;
+    }
     // Right edge matches the item table's Amount column (which right-aligns with a
     // 1mm cell padding), so every rupee figure on the receipt shares the same edge.
     const amountRightX = widthMM - mX - 1;
-    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8*k);
     const totalQty = inv.items.reduce((s2,it)=>s2+it.qty,0);
-    doc.text(`Items: ${inv.items.length}   Qty: ${totalQty}`, mX, y); y += 4.4;
-    doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text(`Items: ${inv.items.length}   Qty: ${totalQty}`, mX, y); y += 4.4*k;
+    doc.setFont('helvetica','normal'); doc.setFontSize(7*k);
     const itemsTotalForOldReceipts = inv.itemsTotal != null ? inv.itemsTotal : inv.total;
     if(inv.discountAmt || inv.deliveryCharge){
       doc.text('Items Total', mX, y);
-      doc.text(rupee(itemsTotalForOldReceipts), amountRightX, y, {align:'right'}); y += 3.4;
+      doc.text(rupee(itemsTotalForOldReceipts), amountRightX, y, {align:'right'}); y += 3.4*k;
     }
     if(inv.discountAmt){
       doc.text(`Discount${inv.discountType==='percent'&&inv.discountValue?' ('+inv.discountValue+'%)':''}`, mX, y);
-      doc.text('- '+rupee(inv.discountAmt), amountRightX, y, {align:'right'}); y += 3.4;
+      doc.text('- '+rupee(inv.discountAmt), amountRightX, y, {align:'right'}); y += 3.4*k;
     }
     if(inv.deliveryCharge){
       doc.text('Delivery / Packing', mX, y);
-      doc.text(rupee(inv.deliveryCharge), amountRightX, y, {align:'right'}); y += 3.4;
+      doc.text(rupee(inv.deliveryCharge), amountRightX, y, {align:'right'}); y += 3.4*k;
     }
-    if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), amountRightX, y, {align:'right'}); y += 3.4; }
-    doc.line(mX,y,widthMM-mX,y); y += 4.5;
+    if(inv.roundOff){ doc.text('Round Off', mX, y); doc.text(rupee(inv.roundOff), amountRightX, y, {align:'right'}); y += 3.4*k; }
+    doc.line(mX,y,widthMM-mX,y); y += 4.5*k;
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
-    doc.text('TOTAL', mX, y); doc.text(rupee(inv.total), amountRightX, y, {align:'right'}); y += 5.2;
-    doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
-    doc.text(`Payment: ${(inv.paymentType||'cash').toUpperCase()}`, mX, y); y += 5;
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5*k);
+    doc.text('TOTAL', mX, y); doc.text(rupee(inv.total), amountRightX, y, {align:'right'}); y += 5.2*k;
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.8*k);
+    doc.text(`Payment: ${(inv.paymentType||'cash').toUpperCase()}`, mX, y); y += 5*k;
 
     if(s.declaration){
-      doc.setFontSize(6);
+      doc.setFontSize(6*k);
       const decLines = doc.splitTextToSize(s.declaration, contentW);
-      doc.text(decLines, widthMM/2, y, {align:'center'}); y += decLines.length*2.6 + 2;
+      doc.text(decLines, widthMM/2, y, {align:'center'}); y += decLines.length*2.6*k + 2;
     }
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
-    doc.text('Thank you, visit again!', widthMM/2, y, {align:'center'}); y += 3.6;
-    doc.setFont('helvetica','normal'); doc.setFontSize(6);
-    doc.text('Goods once sold cannot be taken back', widthMM/2, y, {align:'center'}); y += 4.5;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5*k);
+    doc.text('Thank you, visit again!', widthMM/2, y, {align:'center'}); y += 3.6*k;
+    doc.setFont('helvetica','normal'); doc.setFontSize(6*k);
+    doc.text('Goods once sold cannot be taken back', widthMM/2, y, {align:'center'}); y += 4.5*k;
 
     // Footer banner picture, full content width (about 13 mm tall on 80 mm paper)
     const cx = widthMM/2;
@@ -2809,9 +2849,9 @@ const Invoices = {
     doc.addImage(RECEIPT_BANNER, 'PNG', mX, y, contentW, bannerH);
     y += bannerH + 3.4;
 
-    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(0,0,0);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6*k); doc.setTextColor(0,0,0);
     doc.text('Computer generated receipt', cx, y, {align:'center'});
-    y += 3;
+    y += 3*k;
 
     return y;
   },
@@ -2820,16 +2860,16 @@ const Invoices = {
     const inv = this._findInvoice(id);
     const cust = Customers.list().find(c=>c.id===inv.customerId) || {name:'Walk-in Customer'};
     const s = Cache.settings;
-    const widthMM = Number(s.receiptWidth) || 80;
+    const widthMM = parseInt(s.receiptWidth,10) || 80, big = /L$/.test(String(s.receiptWidth));
     const { jsPDF } = window.jspdf;
 
     // Pass 1: measure on a generously tall scratch page.
     const scratch = new jsPDF({unit:'mm', format:[widthMM, 1000]});
-    const measuredY = this.drawReceiptContent(scratch, inv, cust, s, widthMM);
+    const measuredY = this.drawReceiptContent(scratch, inv, cust, s, widthMM, big);
 
     // Pass 2: draw for real on a page sized to exactly fit.
     const doc = new jsPDF({unit:'mm', format:[widthMM, measuredY + 4]});
-    this.drawReceiptContent(doc, inv, cust, s, widthMM);
+    this.drawReceiptContent(doc, inv, cust, s, widthMM, big);
     return doc;
   },
   downloadReceipt(id){
@@ -2973,7 +3013,7 @@ const CustomerPortal = {
       this._loadLite();   // 1) names + prices only, straight away
       this._productsUnsub = db.collection('products').onSnapshot(snap=>{   // 2) the full records with photos follow
         this._fullLoaded = true;
-        Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(skuCompare);
+        Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(productCompare);
         this.renderCatalog();
       }, err=>{ listEl.innerHTML = `<p class="empty text-ember" style="grid-column:1/-1">Couldn't load products — ${err.message}</p>`; });
     } else {
@@ -3146,7 +3186,7 @@ const CustomerPortal = {
         token = j.nextPageToken || '';
       }while(token);
       if(this._fullLoaded || !out.length) return;      // the full list already arrived first
-      Cache.products = out.sort(skuCompare);
+      Cache.products = out.sort(productCompare);
       this.renderCatalog();
     }catch(e){ /* blocked or offline — the normal full load below still works */ }
   },
@@ -3446,6 +3486,7 @@ const Settings = {
     setPrefix.value = s.prefix||'INV-'; setNextNum.value = s.nextNum||1001; setDefaultTax.value = s.defaultTax??18;
     setUpiId.value = s.upiId||'';
     setReceiptWidth.value = s.receiptWidth || '80';
+    setDefaultBill.value = s.defaultBill || 'printReceipt';
     setBankName.value = s.bankName||''; setBankAccount.value = s.bankAccount||''; setBankBranchIfsc.value = s.bankBranchIfsc||'';
     setDeclaration.value = s.declaration||'';
     setAlertUrl.value = s.alertUrl||''; setAlertKey.value = s.alertKey||''; setWhatsapp.value = s.whatsapp||'';
@@ -3461,7 +3502,8 @@ document.getElementById('settingsForm').addEventListener('submit', async e=>{
       prefix:setPrefix.value, nextNum:parseInt(setNextNum.value)||1001,
       defaultTax:parseFloat(setDefaultTax.value)||0,
       upiId:setUpiId.value.trim(),
-      receiptWidth:setReceiptWidth.value
+      receiptWidth:setReceiptWidth.value,
+      defaultBill:setDefaultBill.value
     }, {merge:true});
     document.getElementById('settingsSaved').classList.remove('hidden');
     setTimeout(()=>document.getElementById('settingsSaved').classList.add('hidden'), 1800);
