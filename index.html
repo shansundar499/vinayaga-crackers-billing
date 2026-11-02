@@ -3065,9 +3065,7 @@ const Invoices = {
         <td class="font-medium">${fmt(i.total)}</td>
         <td><span class="badge badge-${i.status}">${i.status}</span></td>
         <td class="text-right whitespace-nowrap">
-          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.openForm('${i.id}')">Open</button>
-          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.duplicate('${i.id}')">Duplicate</button>
-          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.printReceipt('${i.id}')">Print</button>
+          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.openForm('${i.id}')">Open</button>          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.printReceipt('${i.id}')">Print</button>
           <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.downloadReceipt('${i.id}')">Receipt</button>
           ${Auth.isAdmin()?`<button class="btn-danger btn !px-2 !py-1 text-xs" onclick="Invoices.remove('${i.id}')">Delete</button>`:''}
         </td>
