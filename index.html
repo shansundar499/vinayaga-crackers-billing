@@ -257,7 +257,7 @@ tbody tr:hover{background:#f6fbfa}
 button.pimg{cursor:zoom-in}
 .pimg img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--ease)}
 button.pimg:hover img{transform:scale(1.05)}
-.pimg .ph{position:absolute;inset:0;display:grid;place-items:center;color:#7fb1aa}
+.pimg .ph{position:absolute;inset:0;background:var(--logo-url) center/68% auto no-repeat;opacity:.9}
 .pimg .ph .ic{width:2.6rem;height:2.6rem;stroke-width:1.3}
 .pcount{position:absolute;left:.5rem;bottom:.5rem;display:inline-flex;align-items:center;gap:.3rem;background:rgba(10,32,34,.72);color:#fff;font-size:.72rem;font-weight:600;padding:.2rem .5rem;border-radius:999px;backdrop-filter:blur(4px)}
 .pbody{padding:.7rem .25rem .2rem;display:flex;flex-direction:column;gap:.5rem;flex:1}
@@ -1123,6 +1123,7 @@ const initials = n => (n||'?').trim().split(/[\s@.]+/).filter(Boolean).slice(0,2
 const ico = (n, cls='') => `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 // One logo data-URI (on #appLogoImg, also used for receipts) feeds every other logo <img>.
 document.querySelectorAll('img[data-logo]').forEach(i=>{ i.src = document.getElementById('appLogoImg').src; });
+document.documentElement.style.setProperty('--logo-url', 'url(' + document.getElementById('appLogoImg').src + ')');
 
 function hideAllTopLevelViews(){
   document.body.classList.remove('glass-shop','glass-staff');
@@ -3409,7 +3410,7 @@ const CustomerPortal = {
            <img src="${imgs[0]}" alt="${p.name}" loading="lazy">
            ${imgs.length>1?`<span class="pcount">${ico('image')} ${imgs.length}</span>`:''}
          </button>`
-      : `<div class="pimg"><span class="ph">${ico('spark')}</span></div>`;
+      : `<div class="pimg"><span class="ph" role="img" aria-label="Vinayaga Crackers"></span></div>`;
     return `<article class="pcard" data-pid="${p.id}" style="--i:${Math.min(i,12)}">
       ${media}
       <div class="pbody">
