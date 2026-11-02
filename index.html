@@ -826,6 +826,7 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
             <option value="new" selected>New</option>
             <option value="confirmed">Confirmed</option>
             <option value="converted">Converted</option>
+            <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
         </div>
@@ -916,7 +917,6 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
             <div class="grid grid-cols-2 gap-2">
               <div><label class="field-label" for="lbPin">Pincode</label><input class="input" id="lbPin" inputmode="numeric" maxlength="6" placeholder="605001"></div>
               <div><label class="field-label" for="lbPh">Phone</label><input class="input" id="lbPh" inputmode="tel" placeholder="98765 43210"></div>
-              <div><label class="field-label" for="lbLen">Label length (mm)</label><input class="input" id="lbLen" type="number" min="60" max="150" value="100"></div>
               <div><label class="field-label" for="lbCopies">Copies</label><input class="input" id="lbCopies" type="number" min="1" max="10" value="1"></div>
             </div>
             <div class="flex gap-2">
@@ -924,13 +924,23 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
               <button class="btn btn-gold flex-1" type="button" onclick="AddressLabels.saveTo()">Save TO PDF</button>
             </div>
             <p id="lbMsg" class="text-dim text-xs min-h-[1em]"></p>
-            <p class="text-dim text-xs">Preview (the 58 mm paper width is the label's height; the PDF is rotated so it prints sideways along the roll):</p>
+            <p class="text-dim text-xs">Preview (58 mm wide; the label gets taller if the address is long):</p>
             <canvas id="lbToCv" class="w-full max-w-[420px] bg-white shadow"></canvas>
           </div>
           <div class="card p-4 space-y-3">
             <h3 class="font-semibold">FROM label (shop)</h3>
-            <div><label class="field-label" for="lbFromCopies">Copies</label><input class="input !w-28" id="lbFromCopies" type="number" min="1" max="50" value="1"></div>
-            <button class="btn btn-gold" type="button" onclick="AddressLabels.saveFrom()">Save FROM PDF</button>
+            <div><label class="field-label" for="lbFName">Shop name</label><input class="input" id="lbFName" autocomplete="off"></div>
+            <div><label class="field-label" for="lbFAddr">Address</label><textarea class="input" id="lbFAddr" rows="3"></textarea></div>
+            <div class="grid grid-cols-2 gap-2">
+              <div><label class="field-label" for="lbFPh">Phone</label><input class="input" id="lbFPh" inputmode="tel"></div>
+              <div><label class="field-label" for="lbFromCopies">Copies</label><input class="input" id="lbFromCopies" type="number" min="1" max="50" value="1"></div>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <button class="btn btn-ghost" type="button" onclick="AddressLabels.resetFrom()">Reset</button>
+              <button class="btn btn-ghost" type="button" onclick="AddressLabels.saveFromDefault()">Save as shop FROM address</button>
+              <button class="btn btn-gold flex-1" type="button" onclick="AddressLabels.saveFrom()">Save FROM PDF</button>
+            </div>
+            <p id="lbFMsg" class="text-dim text-xs min-h-[1em]"></p>
             <canvas id="lbFromCv" class="w-full max-w-[320px] bg-white shadow"></canvas>
           </div>
         </div>
@@ -1508,7 +1518,22 @@ const skuCompare = (a,b) => {
 };
 // Same order as the customer shop: Sparklers first, then Walas, and so on (known categories in list order, others A-Z, "Other" last), then by SKU.
 const categoryRank = p => { const c = categoryOf(p) || 'Other', known = Object.values(PRODUCT_CATEGORY_NAMES); return c==='Other' ? 999 : (known.indexOf(c)<0 ? 500 : known.indexOf(c)); };
-const productCompare = (a,b) => categoryRank(a)-categoryRank(b) || (categoryOf(a)||'').localeCompare(categoryOf(b)||'') || skuCompare(a,b);
+// Position inside a category: the product's own "order" if one was set, else the number in its SKU (SPK-012 -> 12).
+const orderNum = p => { if(typeof p.order === 'number') return p.order; const m = (p.sku||'').match(/(\d+)\s*$/); return m ? parseInt(m[1],10) : Infinity; };
+const productCompare = (a,b) => categoryRank(a)-categoryRank(b) || (categoryOf(a)||'').localeCompare(categoryOf(b)||'') || (orderNum(a)===orderNum(b) ? 0 : orderNum(a)<orderNum(b) ? -1 : 1) || skuCompare(a,b);
+// SKU prefix for a category: the standard one (Sparklers -> SPK), else the one its products already use, else its first letters.
+function skuPrefixFor(cat){
+  const std = Object.entries(PRODUCT_CATEGORY_NAMES).find(([,n])=>n.toLowerCase()===cat.trim().toLowerCase());
+  if(std) return std[0];
+  const used = {}; Products.list().filter(p=>categoryOf(p).toLowerCase()===cat.trim().toLowerCase()).forEach(p=>{ const m=(p.sku||'').match(/^([A-Za-z]+)-/); if(m) used[m[1].toUpperCase()]=(used[m[1].toUpperCase()]||0)+1; });
+  const top = Object.entries(used).sort((a,b)=>b[1]-a[1])[0];
+  return top ? top[0] : (cat.replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase() || 'GEN');
+}
+function nextSkuFor(cat, skipId){
+  const pre = skuPrefixFor(cat); let max = 0;
+  Products.list().forEach(p=>{ if(p.id===skipId) return; const m=(p.sku||'').match(new RegExp('^'+pre+'-(\\d+)$','i')); if(m) max=Math.max(max,parseInt(m[1],10)); });
+  return `${pre}-${String(max+1).padStart(3,'0')}`;
+}
 const todayISO = () => new Date().toISOString().slice(0,10);
 function toast(msg){
   const t = document.getElementById('toast');
@@ -1722,14 +1747,16 @@ const Products = {
     openModal(`
       <h3 class="font-semibold text-lg mb-4">${id?'Edit':'Add'} Product / Service</h3>
       <form id="prodForm" class="space-y-3">
-        <div><label class="text-xs text-dim">Name *</label><input class="input mt-1" id="pName" value="${p.name||''}" required></div>
-        <div class="grid grid-cols-2 gap-2">
-          <div><label class="text-xs text-dim">SKU</label><input class="input mt-1" id="pSku" value="${p.sku||''}"></div>
-          <div><label class="text-xs text-dim">HSN/SAC</label><input class="input mt-1" id="pHsn" value="${p.hsn||''}" placeholder="e.g. 36041000"></div>
-        </div>
+        <div><label class="text-xs text-dim">Name *</label><input class="input mt-1" id="pName" value="${(p.name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" required></div>
         <div><label class="text-xs text-dim">Category <span class="font-normal">(shown to customers as a tab in the shop)</span></label>
           <input class="input mt-1" id="pCategory" list="pCatList" value="${categoryOf(p)}" placeholder="e.g. Sparklers">
           <datalist id="pCatList">${[...new Set([...Object.values(PRODUCT_CATEGORY_NAMES), ...Products.list().map(categoryOf).filter(Boolean)])].map(c=>`<option value="${c}">`).join('')}</datalist></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs text-dim">SKU <span class="font-normal" id="pSkuHint">${id?'':'(auto from category)'}</span></label><input class="input mt-1" id="pSku" value="${p.sku||''}"></div>
+          <div><label class="text-xs text-dim">HSN/SAC</label><input class="input mt-1" id="pHsn" value="${p.hsn||''}" placeholder="e.g. 36041000"></div>
+        </div>
+        <div><label class="text-xs text-dim">Position in the list <span class="font-normal">(order shown in the shop, Products tab and invoices)</span></label>
+          <select class="input mt-1" id="pPos"></select></div>
         <div class="grid grid-cols-2 gap-2">
           <div><label class="text-xs text-dim">Unit</label><input class="input mt-1" id="pUnit" value="${p.unit||'pcs'}" placeholder="pcs / kgs / box"></div>
           <div><label class="text-xs text-dim">Price (₹, incl. GST) *</label><input class="input mt-1" id="pPrice" type="number" step="0.01" value="${p.price||''}" required></div>
@@ -1763,6 +1790,36 @@ const Products = {
     Products._removeImageAt = (i) => { pImages.splice(i,1); pHi.splice(i,1); renderGrid(); };
     renderGrid();
 
+    // SKU follows the category (next free number); position picks where the product sits in its category.
+    const origCat = id ? categoryOf(p).toLowerCase() : '';
+    let skuTouched = !!(id && p.sku);
+    const siblings = () => { const c = pCategory.value.trim().toLowerCase(); return c ? Products.list().filter(x=>x.id!==id && categoryOf(x).toLowerCase()===c).sort(productCompare) : []; };
+    const refreshPos = () => {
+      const sibs = siblings(), moved = !id || pCategory.value.trim().toLowerCase()!==origCat;
+      const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      pPos.innerHTML = (id && !moved ? '<option value="keep">Keep current position</option>' : '')
+        + `<option value="end"${moved?' selected':''}>At the end of the category</option><option value="start">At the start of the category</option>`
+        + sibs.map(x=>`<option value="after:${x.id}">After: ${esc(x.name)}</option>`).join('');
+    };
+    pCategory.addEventListener('input', ()=>{
+      if(!skuTouched && pCategory.value.trim()){ pSku.value = nextSkuFor(pCategory.value, id); pSkuHint.textContent = '(auto from category)'; }
+      refreshPos();
+    });
+    pSku.addEventListener('input', ()=>{ skuTouched = true; pSkuHint.textContent = ''; });
+    refreshPos();
+    const positionOrder = () => {
+      const v = pPos.value, sibs = siblings(), fin = sibs.map(orderNum).filter(isFinite);
+      if(v==='keep') return undefined;
+      if(v==='start') return fin.length ? Math.min(...fin)-1 : 1;
+      if(v.startsWith('after:')){
+        const i = sibs.findIndex(x=>x.id===v.slice(6)); if(i<0) return undefined;
+        const a = orderNum(sibs[i]), b = sibs[i+1] ? orderNum(sibs[i+1]) : Infinity;
+        if(!isFinite(a)) return undefined;
+        return isFinite(b) ? (a+b)/2 : a+1;
+      }
+      return fin.length ? Math.max(...fin)+1 : 1;
+    };
+
     document.getElementById('pImageFile').addEventListener('change', async e=>{
       const files = [...e.target.files].slice(0, MAX_IMAGES - pImages.length);
       const statusEl = document.getElementById('pImageStatus');
@@ -1784,6 +1841,7 @@ const Products = {
       const data = {name:pName.value.trim(), sku:pSku.value.trim(), hsn:pHsn.value.trim(), unit:pUnit.value.trim()||'pcs',
         category:pCategory.value.trim(), price:parseFloat(pPrice.value)||0, tax:Cache.settings.defaultTax??18,
         images: pImages, imageUrl: pImages[0]||''};
+      const ord = positionOrder(); if(ord !== undefined) data.order = ord;
       const saveBtn = document.getElementById('prodSaveBtn');
       saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
       try{
@@ -2178,6 +2236,7 @@ const Invoices = {
             </select>
             <button class="btn btn-ghost" type="button" onclick="Invoices.runPrintAction('${inv.id}')">Go</button>
           `:''}
+          ${inv?`<button class="btn btn-ghost" type="button" onclick="Invoices.duplicate('${inv.id}')">Duplicate</button>`:''}
           ${inv&&inv.status!=='cancelled'?`<button class="btn btn-danger" type="button" onclick="Invoices.cancel('${inv.id}')">Cancel Invoice</button>`:''}
           ${inv&&Auth.isAdmin()?`<button class="btn btn-danger" type="button" onclick="Invoices.remove('${inv.id}')">Delete Invoice</button>`:''}
           <button class="btn btn-ghost" type="button" onclick="closeModal()">Close</button>
@@ -2283,6 +2342,14 @@ const Invoices = {
         Invoices.openForm(savedId);
       }catch(err){ toast('Error: '+err.message); }
     });
+  },
+
+  // Opens a new, unsaved invoice (fresh number and date) pre-filled with this one's customer and items.
+  duplicate(id){
+    const inv = this._findInvoice(id); if(!inv) return;
+    closeModal();
+    this.openForm(undefined, {prefillItems: inv.items, prefillCustomerId: inv.customerId});
+    toast('Duplicate ready — review and save');
   },
 
   toggleQuickCustomer(){
@@ -2973,6 +3040,7 @@ const Invoices = {
         <td><span class="badge badge-${i.status}">${i.status}</span></td>
         <td class="text-right whitespace-nowrap">
           <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.openForm('${i.id}')">Open</button>
+          <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.duplicate('${i.id}')">Duplicate</button>
           <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.printReceipt('${i.id}')">Print</button>
           <button class="btn-ghost btn !px-2 !py-1 text-xs" onclick="Invoices.downloadReceipt('${i.id}')">Receipt</button>
           ${Auth.isAdmin()?`<button class="btn-danger btn !px-2 !py-1 text-xs" onclick="Invoices.remove('${i.id}')">Delete</button>`:''}
@@ -2991,6 +3059,12 @@ const Orders = {
   list(){ return Cache.orders; },
   markStatus(id, status){
     db.collection('orders').doc(id).update({status}).catch(err=>toast('Error: '+err.message));
+  },
+  remove(id){
+    if(!Auth.isAdmin()){ toast('Only admins can delete orders'); return; }
+    const o = this.list().find(x=>x.id===id); if(!o) return;
+    if(!confirm(`Delete the order from ${o.customerName||'this customer'}? This cannot be undone.`)) return;
+    db.collection('orders').doc(id).delete().then(()=>toast('Order deleted')).catch(err=>toast('Error: '+err.message));
   },
   shareWhatsApp(id){
     const o = this.list().find(x=>x.id===id);
@@ -3039,7 +3113,7 @@ const Orders = {
           </div>
           <span class="flex items-center gap-1.5 flex-wrap">
             ${o.paymentClaimed?`<span class="badge badge-paid">${ico('card')} Paid (unverified)</span>`:`<span class="badge badge-pending">${ico('phone')} Enquiry</span>`}
-            <span class="badge badge-${o.status==='new'?'pending':o.status==='confirmed'?'partial':o.status==='converted'?'paid':'cancelled'}">${o.status}</span>
+            <span class="badge badge-${o.status==='new'?'pending':o.status==='confirmed'?'partial':o.status==='converted'||o.status==='completed'?'paid':'cancelled'}">${o.status}</span>
           </span>
         </div>
         <div class="grid gap-1 mb-3">${itemsHtml}</div>
@@ -3049,9 +3123,14 @@ const Orders = {
           ${o.status==='new'?`<button class="btn-ghost btn text-xs" onclick="Orders.markStatus('${o.id}','confirmed')">${ico('check')} Mark Confirmed</button>`:''}
           ${o.customerPhone?`<a class="btn-ghost btn text-xs" href="tel:${o.customerPhone}">${ico('phone')} Call</a>`:''}
           <button class="btn-ghost btn text-xs" onclick="Orders.shareWhatsApp('${o.id}')">${ico('chat')} Share to WhatsApp</button>
-          ${o.status!=='converted'&&o.status!=='cancelled'?`<button class="btn btn-gold text-xs" onclick="Orders.convert('${o.id}')">${ico('receipt')} Convert to Invoice</button>`:''}
+          ${['new','confirmed'].includes(o.status)?`<button class="btn btn-gold text-xs" onclick="Orders.convert('${o.id}')">${ico('receipt')} Convert to Invoice</button>`:''}
           ${o.invoiceNo?`<span class="text-dim text-sm">Invoice ${o.invoiceNo}</span>`:''}
-          ${o.status!=='converted'&&o.status!=='cancelled'?`<button class="btn-danger btn text-xs ml-auto" onclick="Orders.markStatus('${o.id}','cancelled')">Cancel</button>`:''}
+          ${['new','confirmed','converted'].includes(o.status)?`<button class="btn-ghost btn text-xs" onclick="Orders.markStatus('${o.id}','completed')">${ico('check')} Order Completed</button>`:''}
+          ${o.status==='completed'?`<button class="btn-ghost btn text-xs" onclick="Orders.markStatus('${o.id}','confirmed')">Reopen</button>`:''}
+          <span class="ml-auto flex gap-2">
+            ${['new','confirmed'].includes(o.status)?`<button class="btn-danger btn text-xs" onclick="Orders.markStatus('${o.id}','cancelled')">Cancel</button>`:''}
+            ${Auth.isAdmin()?`<button class="btn-danger btn text-xs" onclick="Orders.remove('${o.id}')">Delete</button>`:''}
+          </span>
         </div>
       </div>`;
     }).join('');
@@ -3243,7 +3322,7 @@ const CustomerPortal = {
     try{
       const cfg = firebase.app().options;
       const base = 'https://firestore.googleapis.com/v1/projects/' + cfg.projectId + '/databases/(default)/documents/products';
-      const mask = ['name','sku','price','unit','tax','category'].map(f=>'mask.fieldPaths='+f).join('&');
+      const mask = ['name','sku','price','unit','tax','category','order'].map(f=>'mask.fieldPaths='+f).join('&');
       const val = x => !x ? undefined : (x.stringValue !== undefined ? x.stringValue : x.integerValue !== undefined ? Number(x.integerValue) : x.doubleValue);
       const out = []; let token = '';
       do{
@@ -3251,7 +3330,7 @@ const CustomerPortal = {
         if(!res.ok) return;
         const j = await res.json();
         (j.documents||[]).forEach(d=>{ const f = d.fields||{};
-          out.push({id:d.name.split('/').pop(), name:val(f.name)||'', sku:val(f.sku)||'', price:Number(val(f.price))||0, unit:val(f.unit)||'', tax:val(f.tax), category:val(f.category)||''}); });
+          out.push({id:d.name.split('/').pop(), name:val(f.name)||'', sku:val(f.sku)||'', price:Number(val(f.price))||0, unit:val(f.unit)||'', tax:val(f.tax), category:val(f.category)||'', order:val(f.order)}); });
         token = j.nextPageToken || '';
       }while(token);
       if(this._fullLoaded || !out.length) return;      // the full list already arrived first
@@ -3693,8 +3772,8 @@ document.querySelectorAll('[data-report]').forEach(btn=>{
    ADDRESS LABELS (58 mm thermal): TO = customer (rotated along the roll), FROM = shop (upright 58x40)
    ============================================================ */
 const AddressLabels = {
-  PAPER:58, M:4.5, PT:0.3528,
-  FROM:{ name:'VINAYAGA CRACKERS', lines:['104, MG Road,','Muthialpet,','Puducherry - 605003'], phone:'Ph: +91 9994314014' },
+  PT:0.3528, X:4, W:50,                       // 58 mm roll: text starts 4 mm in, 50 mm wide
+  DEFAULT_FROM:{ name:'VINAYAGA CRACKERS', addr:'104, MG Road,\nMuthialpet,\nPuducherry - 605003', phone:'+91 9994314014' },
   _mc: null,
   _el(id){ return document.getElementById(id); },
   _w(t,size,bold){
@@ -3704,7 +3783,7 @@ const AddressLabels = {
   },
   _wrap(text,size,bold,max){
     const out=[];
-    text.split('\n').forEach(par=>{
+    String(text||'').split('\n').forEach(par=>{
       let line='';
       par.trim().split(/\s+/).filter(Boolean).forEach(w=>{
         const t = line ? line+' '+w : w;
@@ -3717,101 +3796,86 @@ const AddressLabels = {
   init(){
     if(!this._bound){
       this._bound = true;
-      ['lbName','lbAddr','lbPin','lbPh','lbLen'].forEach(id=>this._el(id).addEventListener('input', ()=>{ this._el('lbMsg').textContent=''; this.drawTo(); }));
+      ['lbName','lbAddr','lbPin','lbPh'].forEach(id=>this._el(id).addEventListener('input', ()=>{ this._el('lbMsg').textContent=''; this.draw(); }));
+      ['lbFName','lbFAddr','lbFPh'].forEach(id=>this._el(id).addEventListener('input', ()=>{ this._el('lbFMsg').textContent=''; this.draw(); }));
       this._el('lbCust').addEventListener('change', e=>{
         const c = Customers.list().find(x=>x.id===e.target.value); if(!c) return;
         this._el('lbName').value = c.name||''; this._el('lbAddr').value = c.address||''; this._el('lbPh').value = c.phone||'';
         const m = (c.address||'').match(/\b\d{6}\b/); this._el('lbPin').value = m ? m[0] : '';
-        this.drawTo();
+        this.draw();
       });
     }
     const sel = this._el('lbCust'), cur = sel.value;
     sel.innerHTML = '<option value="">— type manually —</option>' + Customers.list().slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''))
       .map(c=>`<option value="${c.id}">${(c.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}${c.phone?' · '+c.phone:''}</option>`).join('');
     sel.value = cur;
-    this.drawTo(); this.drawFrom();
+    if(!this._fromLoaded){ this._fromLoaded = true; this._setFrom((Cache.settings||{}).labelFrom || this.DEFAULT_FROM); }
+    this.draw();
   },
-  _toData(){
-    const g = id=>this._el(id).value.trim();
-    let ph = g('lbPh'); if(/^\d{10}$/.test(ph.replace(/\s/g,''))) ph = '+91 '+ph.replace(/\s/g,'');
-    return { name:g('lbName').toUpperCase(), addr:g('lbAddr'), pin:g('lbPin'), ph,
-      L:Math.min(150,Math.max(60,parseInt(this._el('lbLen').value)||100)),
-      copies:Math.min(10,Math.max(1,parseInt(this._el('lbCopies').value)||1)) };
+  _setFrom(f){ this._el('lbFName').value=f.name||''; this._el('lbFAddr').value=f.addr||''; this._el('lbFPh').value=f.phone||''; },
+  _from(){ const g=id=>this._el(id).value.trim(); return { name:g('lbFName'), addr:g('lbFAddr'), phone:g('lbFPh') }; },
+  _to(){
+    const g=id=>this._el(id).value.trim();
+    let ph=g('lbPh'); if(/^\d{10}$/.test(ph.replace(/\s/g,''))) ph='+91 '+ph.replace(/\s/g,'');
+    return { name:g('lbName').toUpperCase(), addr:g('lbAddr'), pin:g('lbPin'), phone:ph, copies:Math.min(10,Math.max(1,parseInt(this._el('lbCopies').value)||1)) };
   },
-  // landscape coords: u along the label, v down from the top (0..58 mm)
-  _toLayout(d, preview){
-    const {M,PAPER,PT} = this, name = d.name || (preview?'CUSTOMER NAME':''), addr = d.addr || (preview?'Address':'');
-    const TW = d.L-2*M, H = PAPER-2*M; let s=1, ops, v;
-    for(; s>=0.5; s-=0.05){
-      ops=[]; v=M;
-      const T=(txt,size,bold,gap)=>this._wrap(txt,size*s,bold,TW).forEach(l=>{ v+=size*s*PT*(gap||1.2); ops.push({k:'t',txt:l,size:size*s,bold,u:M,v}); });
-      const dash=()=>{ v+=1.6; ops.push({k:'l',v}); v+=0.6; };
-      T('TO:',10,true); dash();
-      T(name,18,true,1.15); v+=0.8;
-      T(addr,13,false,1.3);
-      if(d.pin){ v+=0.6; T('PIN: '+d.pin,14,true); }
-      if(d.ph){ dash(); T('Ph: '+d.ph,14,true); }
-      if(v<=M+H) break;
-    }
-    return ops;
+  // Same layout for both labels: head, dashed rule, bold name, address, [pin], dashed rule, bold phone. Height grows with content (min 40 mm).
+  _layout(head, name, addr, pin, phone, logo){
+    const {X,W} = this, ops=[]; let v=6;
+    ops.push({k:'t',txt:head,size:10,bold:true,v},{k:'l',v:8.4});
+    v=14; let fs=12;
+    this._wrap(name,fs,true,logo?W-19:W).forEach((l,i)=>{ if(i) v+=5; ops.push({k:'t',txt:l,size:fs,bold:true,v}); });
+    this._wrap(addr,10,false,W).forEach(l=>{ v+=4.6; ops.push({k:'t',txt:l,size:10,bold:false,v}); });
+    if(pin){ v+=5; ops.push({k:'t',txt:'PIN: '+pin,size:11,bold:true,v}); }
+    if(phone){ v+=2.4; ops.push({k:'l',v}); v+=5.1; ops.push({k:'t',txt:'Ph: '+phone,size:11,bold:true,v}); }
+    return {ops, H:Math.max(40, v+4.7)};
   },
-  drawTo(){
-    const d=this._toData(), ops=this._toLayout(d,true), cv=this._el('lbToCv'), k=8, {M,PT}=this;
-    cv.width=d.L*k; cv.height=this.PAPER*k;
+  _fromLayout(){ const f=this._from(); return this._layout('FROM:', f.name, f.addr, '', f.phone); },
+  _toLayout(preview){ const d=this._to(); return this._layout('TO:', d.name||(preview?'CUSTOMER NAME':''), d.addr||(preview?'Address':''), d.pin, d.phone); },
+  _logo(){ const i=document.getElementById('appLogoImg'); return {src:i.src, w:17, h:17*(i.naturalHeight||194)/(i.naturalWidth||600), x:37, y:2.4, el:i}; },
+  _paint(cv, L, logo, dim){
+    const k=8, {X}=this; cv.width=58*k; cv.height=L.H*k;
     const c=cv.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,cv.width,cv.height); c.strokeStyle='#000';
-    ops.forEach(o=>{
-      if(o.k==='t'){
-        c.font=(o.bold?'bold ':'')+(o.size*PT*k)+'px Helvetica, Arial, sans-serif';
-        c.fillStyle=(!d.name&&o.txt==='CUSTOMER NAME')||(!d.addr&&o.txt==='Address')?'#aaa':'#000';
-        c.fillText(o.txt,o.u*k,o.v*k);
-      } else {
-        c.setLineDash([k,k]); c.lineWidth=0.25*k; c.beginPath(); c.moveTo(M*k,o.v*k); c.lineTo((d.L-M)*k,o.v*k); c.stroke(); c.setLineDash([]);
-      }
+    L.ops.forEach(o=>{
+      if(o.k==='t'){ c.font=(o.bold?'bold ':'')+(o.size*this.PT*k)+'px Helvetica, Arial, sans-serif'; c.fillStyle=dim&&dim(o.txt)?'#aaa':'#000'; c.fillText(o.txt,X*k,o.v*k); }
+      else { c.setLineDash([0.7*k,0.7*k]); c.lineWidth=0.25*k; c.beginPath(); c.moveTo(X*k,o.v*k); c.lineTo(54*k,o.v*k); c.stroke(); c.setLineDash([]); }
     });
+    if(logo){ try{ c.drawImage(logo.el, logo.x*k, logo.y*k, logo.w*k, logo.h*k); }catch(e){} }
   },
-  _fromOps(){
-    const F=this.FROM, ops=[];
-    ops.push({k:'t',txt:'FROM:',size:10,bold:true,v:6},{k:'l',v:8.4},{k:'t',txt:F.name,size:12,bold:true,v:14});
-    F.lines.forEach((l,i)=>ops.push({k:'t',txt:l,size:10,bold:false,v:18.6+i*4.6}));
-    ops.push({k:'l',v:30.2},{k:'t',txt:F.phone,size:11,bold:true,v:35.3});
-    return ops;
+  draw(){
+    const d=this._to();
+    this._paint(this._el('lbToCv'), this._toLayout(true), null, t=>(!d.name&&t==='CUSTOMER NAME')||(!d.addr&&t==='Address'));
+    this._paint(this._el('lbFromCv'), this._fromLayout(), this._logo());
   },
-  drawFrom(){
-    const cv=this._el('lbFromCv'), k=8; cv.width=58*k; cv.height=40*k;
-    const c=cv.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,cv.width,cv.height); c.strokeStyle='#000'; c.fillStyle='#000';
-    this._fromOps().forEach(o=>{
-      if(o.k==='t'){ c.font=(o.bold?'bold ':'')+(o.size*this.PT*k)+'px Helvetica, Arial, sans-serif'; c.fillText(o.txt,4*k,o.v*k); }
-      else { c.setLineDash([0.7*k,0.7*k]); c.lineWidth=0.25*k; c.beginPath(); c.moveTo(4*k,o.v*k); c.lineTo(54*k,o.v*k); c.stroke(); c.setLineDash([]); }
-    });
+  _pdf(L, copies, logo, file){
+    const {jsPDF}=window.jspdf, {X}=this, o=L.H>58?'portrait':'landscape';
+    const doc=new jsPDF({unit:'mm',format:[58,L.H],orientation:o});
+    for(let n=0;n<copies;n++){
+      if(n) doc.addPage([58,L.H],o);
+      L.ops.forEach(p=>{
+        if(p.k==='t'){ doc.setFont('helvetica',p.bold?'bold':'normal'); doc.setFontSize(p.size); doc.text(p.txt,X,p.v); }
+        else { doc.setLineDashPattern([0.7,0.7],0); doc.setLineWidth(0.25); doc.line(X,p.v,54,p.v); doc.setLineDashPattern([],0); }
+      });
+      if(logo) doc.addImage(logo.src,'PNG',logo.x,logo.y,logo.w,logo.h);
+    }
+    doc.save(file);
   },
   saveTo(){
-    const d=this._toData(); if(!d.name){ this._el('lbMsg').textContent='Enter the customer name.'; this._el('lbName').focus(); return; }
-    const ops=this._toLayout(d,false), {jsPDF}=window.jspdf, {PAPER,M}=this;
-    const doc=new jsPDF({unit:'mm',format:[PAPER,d.L],orientation:'portrait'});
-    const P=(u,v)=>[PAPER-v,u];                      // landscape -> page (rotate 90° clockwise)
-    for(let n=0;n<d.copies;n++){
-      if(n) doc.addPage([PAPER,d.L],'portrait');
-      ops.forEach(o=>{
-        if(o.k==='t'){ doc.setFont('helvetica',o.bold?'bold':'normal'); doc.setFontSize(o.size); const [x,y]=P(o.u,o.v); doc.text(o.txt,x,y,{angle:-90}); }
-        else { const [x1,y1]=P(M,o.v), [x2,y2]=P(d.L-M,o.v); doc.setLineDashPattern([1,1],0); doc.setLineWidth(0.25); doc.line(x1,y1,x2,y2); doc.setLineDashPattern([],0); }
-      });
-    }
+    const d=this._to(); if(!d.name){ this._el('lbMsg').textContent='Enter the customer name.'; this._el('lbName').focus(); return; }
     const file='TO_'+d.name.replace(/[^A-Z0-9]+/gi,'_').replace(/^_|_$/g,'')+'.pdf';
-    doc.save(file); this._el('lbMsg').textContent='Saved '+file;
+    this._pdf(this._toLayout(false), d.copies, null, file); this._el('lbMsg').textContent='Saved '+file;
   },
   saveFrom(){
-    const n=Math.min(50,Math.max(1,parseInt(this._el('lbFromCopies').value)||1)), {jsPDF}=window.jspdf;
-    const doc=new jsPDF({unit:'mm',format:[58,40],orientation:'landscape'});
-    for(let i=0;i<n;i++){
-      if(i) doc.addPage([58,40],'landscape');
-      this._fromOps().forEach(o=>{
-        if(o.k==='t'){ doc.setFont('helvetica',o.bold?'bold':'normal'); doc.setFontSize(o.size); doc.text(o.txt,4,o.v); }
-        else { doc.setLineDashPattern([0.7,0.7],0); doc.setLineWidth(0.25); doc.line(4,o.v,54,o.v); doc.setLineDashPattern([],0); }
-      });
-    }
-    doc.save('from-address-58mm.pdf');
+    const n=Math.min(50,Math.max(1,parseInt(this._el('lbFromCopies').value)||1));
+    this._pdf(this._fromLayout(), n, this._logo(), 'from-address-58mm.pdf');
   },
-  clearTo(){ ['lbName','lbAddr','lbPin','lbPh'].forEach(id=>this._el(id).value=''); this._el('lbCust').value=''; this._el('lbCopies').value=1; this._el('lbMsg').textContent=''; this.drawTo(); this._el('lbName').focus(); }
+  async saveFromDefault(){
+    const f=this._from();
+    try{ await db.collection('settings').doc('main').set({labelFrom:f},{merge:true}); this._el('lbFMsg').textContent='Saved as the shop’s FROM address.'; }
+    catch(err){ this._el('lbFMsg').textContent='Could not save: '+err.message; }
+  },
+  resetFrom(){ this._setFrom(this.DEFAULT_FROM); this.draw(); },
+  clearTo(){ ['lbName','lbAddr','lbPin','lbPh'].forEach(id=>this._el(id).value=''); this._el('lbCust').value=''; this._el('lbCopies').value=1; this._el('lbMsg').textContent=''; this.draw(); this._el('lbName').focus(); }
 };
 
 const Reports = {
