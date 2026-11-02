@@ -517,6 +517,11 @@ body.glass-staff .overlay.open{background:rgba(15,42,58,.4)}
 .mrp s{text-decoration-thickness:1.5px}
 .mrp .off{color:var(--green);font-weight:700;margin-left:.15rem;white-space:nowrap}
 .mrp-inline s{text-decoration-thickness:1.5px}
+.ship-strip{display:flex;flex-wrap:wrap;gap:.5rem .6rem;justify-content:center;margin:.9rem auto 0;padding:0 1rem;max-width:1100px}
+.ship-strip span{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .8rem;border-radius:999px;background:rgba(255,255,255,.7);border:1px solid rgba(15,118,110,.2);font-size:.82rem;color:var(--ink,#16323a)}
+.ship-strip .ic{width:1.05em;height:1.05em;color:var(--green)}
+.ship-note{margin-top:.5rem;font-size:.82rem;font-weight:600;color:var(--green)}
+.ship-note.hidden{display:none !important}
 .save-line{margin-top:.6rem;font-size:.85rem;color:var(--green);font-weight:600}
 .save-line.hidden{display:none !important}
 /* festival-sale banner: corner ribbon + 3 order steps */
@@ -609,6 +614,10 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
           </ol>
         </div>
       </section></div>
+      <div class="ship-strip" role="note">
+        <span><svg class="ic"><use href="#i-bag"/></svg><b>Free delivery</b> across Tamil Nadu on orders above ₹4,000</span>
+        <span><svg class="ic"><use href="#i-phone"/></svg><b>Cash on Delivery</b> available within Puducherry</span>
+      </div>
       <div id="portalCatBar" class="cat-bar hidden"><nav id="portalCats" class="cat-scroll" aria-label="Product categories"></nav></div>
       <section class="shop-wrap">
         <div class="grid-head"><h2 id="portalGridTitle">Our crackers</h2><span id="portalResultCount"></span></div>
@@ -628,7 +637,8 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
           <div id="portalCartItems"></div>
           <div class="total-row"><span class="lbl">Total</span><span class="amt" id="portalCartTotal">₹0</span></div>
           <p id="portalSaveLine" class="save-line hidden"></p>
-          <p class="text-dim text-xs mt-2">Prices include GST.</p>
+          <p id="portalShipLine" class="ship-note hidden"></p>
+          <p class="text-dim text-xs mt-2">Prices include GST. Free delivery across Tamil Nadu above ₹4,000 · Cash on Delivery within Puducherry.</p>
         </div>
 
         <div class="space-y-5">
@@ -746,6 +756,7 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
       <div class="nav-item side-link" data-view="customers" role="button" tabindex="0"><svg class="ic"><use href="#i-users"/></svg> Customers</div>
       <div class="nav-item side-link" data-view="products" role="button" tabindex="0"><svg class="ic"><use href="#i-box"/></svg> Products &amp; Services</div>
       <div class="nav-item side-link" data-view="reports" role="button" tabindex="0"><svg class="ic"><use href="#i-chart"/></svg> Reports</div>
+      <div class="nav-item side-link" data-view="labels" role="button" tabindex="0"><svg class="ic"><use href="#i-box"/></svg> Address Labels</div>
       <div class="nav-item side-link" data-view="settings" data-admin-only role="button" tabindex="0"><svg class="ic"><use href="#i-gear"/></svg> Settings</div>
     </nav>
     <div class="side-user">
@@ -890,6 +901,39 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
           <button class="btn btn-ghost text-sm" data-report="tax">Tax Report</button>
         </div>
         <div class="card p-4 overflow-x-auto" id="reportOutput"><p class="text-dim text-sm">Choose a report above.</p></div>
+      </section>
+
+      <!-- ADDRESS LABELS -->
+      <section id="view-labels" class="view">
+        <div class="page-head"><h2>Address Labels</h2><p>58 mm printer: TO label for the customer, FROM label for the shop. Save as PDF, then print.</p></div>
+        <div class="grid gap-4 lg:grid-cols-2">
+          <div class="card p-4 space-y-3">
+            <h3 class="font-semibold">TO label (customer)</h3>
+            <div><label class="field-label" for="lbCust">Fill from customer</label>
+              <select class="input" id="lbCust"><option value="">— type manually —</option></select></div>
+            <div><label class="field-label" for="lbName">Customer name</label><input class="input" id="lbName" placeholder="e.g. R. Karthik" autocomplete="off"></div>
+            <div><label class="field-label" for="lbAddr">Address</label><textarea class="input" id="lbAddr" rows="3" placeholder="Door no, street&#10;Area&#10;City"></textarea></div>
+            <div class="grid grid-cols-2 gap-2">
+              <div><label class="field-label" for="lbPin">Pincode</label><input class="input" id="lbPin" inputmode="numeric" maxlength="6" placeholder="605001"></div>
+              <div><label class="field-label" for="lbPh">Phone</label><input class="input" id="lbPh" inputmode="tel" placeholder="98765 43210"></div>
+              <div><label class="field-label" for="lbLen">Label length (mm)</label><input class="input" id="lbLen" type="number" min="60" max="150" value="100"></div>
+              <div><label class="field-label" for="lbCopies">Copies</label><input class="input" id="lbCopies" type="number" min="1" max="10" value="1"></div>
+            </div>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost" type="button" onclick="AddressLabels.clearTo()">Clear</button>
+              <button class="btn btn-gold flex-1" type="button" onclick="AddressLabels.saveTo()">Save TO PDF</button>
+            </div>
+            <p id="lbMsg" class="text-dim text-xs min-h-[1em]"></p>
+            <p class="text-dim text-xs">Preview (the 58 mm paper width is the label's height; the PDF is rotated so it prints sideways along the roll):</p>
+            <canvas id="lbToCv" class="w-full max-w-[420px] bg-white shadow"></canvas>
+          </div>
+          <div class="card p-4 space-y-3">
+            <h3 class="font-semibold">FROM label (shop)</h3>
+            <div><label class="field-label" for="lbFromCopies">Copies</label><input class="input !w-28" id="lbFromCopies" type="number" min="1" max="50" value="1"></div>
+            <button class="btn btn-gold" type="button" onclick="AddressLabels.saveFrom()">Save FROM PDF</button>
+            <canvas id="lbFromCv" class="w-full max-w-[320px] bg-white shadow"></canvas>
+          </div>
+        </div>
       </section>
 
       <!-- SETTINGS -->
@@ -1560,6 +1604,7 @@ function showView(name){
   if(name==='invoices') Invoices.renderTable();
   if(name==='customers') Customers.renderTable();
   if(name==='products') Products.renderTable();
+  if(name==='labels') AddressLabels.init();
   if(name==='settings') Settings.render();
 }
 document.querySelectorAll('.side-link').forEach(n=>{
@@ -1975,11 +2020,26 @@ const Invoices = {
   _pendingInvoices: {},
   _findInvoice(id){ return this.list().find(x=>x.id===id) || this._pendingInvoices[id]; },
 
+  // Items in the shop's product order (category, then SKU) rather than the order they were picked.
+  sortItems(items){
+    const prods = Products.list();
+    const rank = it => { const p = prods.find(x=>x.id===it.productId); return p || null; };
+    return items.sort((a,b)=>{ const pa=rank(a), pb=rank(b); return pa&&pb ? productCompare(pa,pb) : (pa?-1:0) - (pb?-1:0); });
+  },
+  sortRows(){
+    const wrap = document.getElementById('itemRows'), prods = Products.list();
+    const key = r => prods.find(x=>x.id===r.querySelector('.item-product').value) || null;
+    [...wrap.querySelectorAll('.item-row')]
+      .map((r,i)=>({r,i,p:key(r)}))
+      .sort((a,b)=> a.p&&b.p ? productCompare(a.p,b.p) : (a.p?-1:0)-(b.p?-1:0) || a.i-b.i)
+      .forEach(o=>wrap.appendChild(o.r));
+  },
+
   openForm(id, opts={}){
     const inv = id ? this._findInvoice(id) : null;
     const customers = Customers.list();
     const products = Products.list();
-    const items = inv ? JSON.parse(JSON.stringify(inv.items)) : (opts.prefillItems ? JSON.parse(JSON.stringify(opts.prefillItems)) : []);
+    const items = Invoices.sortItems(inv ? JSON.parse(JSON.stringify(inv.items)) : (opts.prefillItems ? JSON.parse(JSON.stringify(opts.prefillItems)) : []));
     const settings = Cache.settings;
     const ref = inv ? (inv.ref||{}) : {};
     const selectedCustomerId = inv ? inv.customerId : (opts.prefillCustomerId || '');
@@ -1989,7 +2049,7 @@ const Invoices = {
       <div class="item-row border border-line rounded-lg p-2 space-y-2 md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-12 md:gap-2 md:items-center" data-idx="${idx}">
         <div class="relative product-picker md:col-span-4">
           <input type="hidden" class="item-product" value="${it.productId||''}">
-          <input class="input item-product-search" placeholder="Search product…" autocomplete="off" value="${productName(it.productId)}">
+          <input class="input item-product-search" placeholder="Search product…" autocomplete="off" value="${productName(it.productId).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">
           <div class="product-picker-results hidden absolute mt-1 w-full card p-1 max-h-56 overflow-y-auto z-30"></div>
         </div>
         <div class="grid grid-cols-12 gap-2 items-center md:contents">
@@ -2184,6 +2244,7 @@ const Invoices = {
           tax: gstPercent
         };
       }).filter(it=>it.productId);
+      Invoices.sortItems(items);
       if(!items.length){ toast('Add at least one item'); return; }
       const discount = {type: iDiscountType.value, value: parseFloat(iDiscountValue.value)||0};
       const deliveryCharge = parseFloat(iDeliveryCharge.value)||0;
@@ -2288,6 +2349,7 @@ const Invoices = {
     wrapperEl.querySelector('.product-picker-results').classList.add('hidden');
     const row = wrapperEl.closest('.item-row');
     row.querySelector('.item-price').value = prod.price;
+    Invoices.sortRows();
     Invoices.recalc();
   },
 
@@ -3339,6 +3401,9 @@ const CustomerPortal = {
     const save = document.getElementById('portalSaveLine'), t = this.cartTotal();
     save.classList.toggle('hidden', !t);
     if(t) save.innerHTML = `You save <b>${fmt(mrpOf(t) - t)}</b> on the M.R.P of ${fmt(mrpOf(t))}`;
+    const ship = document.getElementById('portalShipLine');
+    ship.classList.toggle('hidden', !t);
+    if(t) ship.innerHTML = t > 4000 ? '🚚 You get <b>free delivery</b> across Tamil Nadu!' : `Add <b>${fmt(4001 - t)}</b> more for free delivery across Tamil Nadu`;
     if(this.orderType==='pay') this.renderUpiPayment();
   },
 
@@ -3624,6 +3689,131 @@ const Dashboard = {
 document.querySelectorAll('[data-report]').forEach(btn=>{
   btn.addEventListener('click', ()=>Reports.run(btn.dataset.report));
 });
+/* ============================================================
+   ADDRESS LABELS (58 mm thermal): TO = customer (rotated along the roll), FROM = shop (upright 58x40)
+   ============================================================ */
+const AddressLabels = {
+  PAPER:58, M:4.5, PT:0.3528,
+  FROM:{ name:'VINAYAGA CRACKERS', lines:['104, MG Road,','Muthialpet,','Puducherry - 605003'], phone:'Ph: +91 9994314014' },
+  _mc: null,
+  _el(id){ return document.getElementById(id); },
+  _w(t,size,bold){
+    this._mc = this._mc || document.createElement('canvas').getContext('2d');
+    this._mc.font = (bold?'bold ':'') + '100px Helvetica, Arial, sans-serif';
+    return this._mc.measureText(t).width/100*size*this.PT;
+  },
+  _wrap(text,size,bold,max){
+    const out=[];
+    text.split('\n').forEach(par=>{
+      let line='';
+      par.trim().split(/\s+/).filter(Boolean).forEach(w=>{
+        const t = line ? line+' '+w : w;
+        if(line && this._w(t,size,bold)>max){ out.push(line); line=w; } else line=t;
+      });
+      if(line) out.push(line);
+    });
+    return out;
+  },
+  init(){
+    if(!this._bound){
+      this._bound = true;
+      ['lbName','lbAddr','lbPin','lbPh','lbLen'].forEach(id=>this._el(id).addEventListener('input', ()=>{ this._el('lbMsg').textContent=''; this.drawTo(); }));
+      this._el('lbCust').addEventListener('change', e=>{
+        const c = Customers.list().find(x=>x.id===e.target.value); if(!c) return;
+        this._el('lbName').value = c.name||''; this._el('lbAddr').value = c.address||''; this._el('lbPh').value = c.phone||'';
+        const m = (c.address||'').match(/\b\d{6}\b/); this._el('lbPin').value = m ? m[0] : '';
+        this.drawTo();
+      });
+    }
+    const sel = this._el('lbCust'), cur = sel.value;
+    sel.innerHTML = '<option value="">— type manually —</option>' + Customers.list().slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+      .map(c=>`<option value="${c.id}">${(c.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}${c.phone?' · '+c.phone:''}</option>`).join('');
+    sel.value = cur;
+    this.drawTo(); this.drawFrom();
+  },
+  _toData(){
+    const g = id=>this._el(id).value.trim();
+    let ph = g('lbPh'); if(/^\d{10}$/.test(ph.replace(/\s/g,''))) ph = '+91 '+ph.replace(/\s/g,'');
+    return { name:g('lbName').toUpperCase(), addr:g('lbAddr'), pin:g('lbPin'), ph,
+      L:Math.min(150,Math.max(60,parseInt(this._el('lbLen').value)||100)),
+      copies:Math.min(10,Math.max(1,parseInt(this._el('lbCopies').value)||1)) };
+  },
+  // landscape coords: u along the label, v down from the top (0..58 mm)
+  _toLayout(d, preview){
+    const {M,PAPER,PT} = this, name = d.name || (preview?'CUSTOMER NAME':''), addr = d.addr || (preview?'Address':'');
+    const TW = d.L-2*M, H = PAPER-2*M; let s=1, ops, v;
+    for(; s>=0.5; s-=0.05){
+      ops=[]; v=M;
+      const T=(txt,size,bold,gap)=>this._wrap(txt,size*s,bold,TW).forEach(l=>{ v+=size*s*PT*(gap||1.2); ops.push({k:'t',txt:l,size:size*s,bold,u:M,v}); });
+      const dash=()=>{ v+=1.6; ops.push({k:'l',v}); v+=0.6; };
+      T('TO:',10,true); dash();
+      T(name,18,true,1.15); v+=0.8;
+      T(addr,13,false,1.3);
+      if(d.pin){ v+=0.6; T('PIN: '+d.pin,14,true); }
+      if(d.ph){ dash(); T('Ph: '+d.ph,14,true); }
+      if(v<=M+H) break;
+    }
+    return ops;
+  },
+  drawTo(){
+    const d=this._toData(), ops=this._toLayout(d,true), cv=this._el('lbToCv'), k=8, {M,PT}=this;
+    cv.width=d.L*k; cv.height=this.PAPER*k;
+    const c=cv.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,cv.width,cv.height); c.strokeStyle='#000';
+    ops.forEach(o=>{
+      if(o.k==='t'){
+        c.font=(o.bold?'bold ':'')+(o.size*PT*k)+'px Helvetica, Arial, sans-serif';
+        c.fillStyle=(!d.name&&o.txt==='CUSTOMER NAME')||(!d.addr&&o.txt==='Address')?'#aaa':'#000';
+        c.fillText(o.txt,o.u*k,o.v*k);
+      } else {
+        c.setLineDash([k,k]); c.lineWidth=0.25*k; c.beginPath(); c.moveTo(M*k,o.v*k); c.lineTo((d.L-M)*k,o.v*k); c.stroke(); c.setLineDash([]);
+      }
+    });
+  },
+  _fromOps(){
+    const F=this.FROM, ops=[];
+    ops.push({k:'t',txt:'FROM:',size:10,bold:true,v:6},{k:'l',v:8.4},{k:'t',txt:F.name,size:12,bold:true,v:14});
+    F.lines.forEach((l,i)=>ops.push({k:'t',txt:l,size:10,bold:false,v:18.6+i*4.6}));
+    ops.push({k:'l',v:30.2},{k:'t',txt:F.phone,size:11,bold:true,v:35.3});
+    return ops;
+  },
+  drawFrom(){
+    const cv=this._el('lbFromCv'), k=8; cv.width=58*k; cv.height=40*k;
+    const c=cv.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,cv.width,cv.height); c.strokeStyle='#000'; c.fillStyle='#000';
+    this._fromOps().forEach(o=>{
+      if(o.k==='t'){ c.font=(o.bold?'bold ':'')+(o.size*this.PT*k)+'px Helvetica, Arial, sans-serif'; c.fillText(o.txt,4*k,o.v*k); }
+      else { c.setLineDash([0.7*k,0.7*k]); c.lineWidth=0.25*k; c.beginPath(); c.moveTo(4*k,o.v*k); c.lineTo(54*k,o.v*k); c.stroke(); c.setLineDash([]); }
+    });
+  },
+  saveTo(){
+    const d=this._toData(); if(!d.name){ this._el('lbMsg').textContent='Enter the customer name.'; this._el('lbName').focus(); return; }
+    const ops=this._toLayout(d,false), {jsPDF}=window.jspdf, {PAPER,M}=this;
+    const doc=new jsPDF({unit:'mm',format:[PAPER,d.L],orientation:'portrait'});
+    const P=(u,v)=>[PAPER-v,u];                      // landscape -> page (rotate 90° clockwise)
+    for(let n=0;n<d.copies;n++){
+      if(n) doc.addPage([PAPER,d.L],'portrait');
+      ops.forEach(o=>{
+        if(o.k==='t'){ doc.setFont('helvetica',o.bold?'bold':'normal'); doc.setFontSize(o.size); const [x,y]=P(o.u,o.v); doc.text(o.txt,x,y,{angle:-90}); }
+        else { const [x1,y1]=P(M,o.v), [x2,y2]=P(d.L-M,o.v); doc.setLineDashPattern([1,1],0); doc.setLineWidth(0.25); doc.line(x1,y1,x2,y2); doc.setLineDashPattern([],0); }
+      });
+    }
+    const file='TO_'+d.name.replace(/[^A-Z0-9]+/gi,'_').replace(/^_|_$/g,'')+'.pdf';
+    doc.save(file); this._el('lbMsg').textContent='Saved '+file;
+  },
+  saveFrom(){
+    const n=Math.min(50,Math.max(1,parseInt(this._el('lbFromCopies').value)||1)), {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:[58,40],orientation:'landscape'});
+    for(let i=0;i<n;i++){
+      if(i) doc.addPage([58,40],'landscape');
+      this._fromOps().forEach(o=>{
+        if(o.k==='t'){ doc.setFont('helvetica',o.bold?'bold':'normal'); doc.setFontSize(o.size); doc.text(o.txt,4,o.v); }
+        else { doc.setLineDashPattern([0.7,0.7],0); doc.setLineWidth(0.25); doc.line(4,o.v,54,o.v); doc.setLineDashPattern([],0); }
+      });
+    }
+    doc.save('from-address-58mm.pdf');
+  },
+  clearTo(){ ['lbName','lbAddr','lbPin','lbPh'].forEach(id=>this._el(id).value=''); this._el('lbCust').value=''; this._el('lbCopies').value=1; this._el('lbMsg').textContent=''; this.drawTo(); this._el('lbName').focus(); }
+};
+
 const Reports = {
   run(type){
     const invoices = Invoices.list().filter(i=>i.status!=='cancelled');
@@ -3695,7 +3885,7 @@ function bootApp(){
   document.getElementById('sidebarAvatar').textContent = (currentProfile.name || currentProfile.email || '?').trim().split(/[\s@.]+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   document.querySelectorAll('[data-admin-only]').forEach(el=> el.style.display = Auth.isAdmin() ? '' : 'none');
   const startView = (location.hash||'#dashboard').slice(1);
-  showView(['dashboard','orders','invoices','customers','products','reports','settings'].includes(startView) && (startView!=='settings'||Auth.isAdmin()) ? startView : 'dashboard');
+  showView(['dashboard','orders','invoices','customers','products','reports','labels','settings'].includes(startView) && (startView!=='settings'||Auth.isAdmin()) ? startView : 'dashboard');
   // Ask once for permission to show a browser alert when a new customer order arrives.
   if(typeof Notification !== 'undefined' && Notification.permission === 'default'){
     Notification.requestPermission();
