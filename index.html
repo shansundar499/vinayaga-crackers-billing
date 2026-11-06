@@ -30,13 +30,28 @@
     <div class="bl-grid"><div class="bl-sk bl-card"></div><div class="bl-sk bl-card"></div><div class="bl-sk bl-card"></div><div class="bl-sk bl-card"></div><div class="bl-sk bl-card"></div><div class="bl-sk bl-card"></div><div class="bl-sk bl-card"></div><div class="bl-sk bl-card"></div></div></div>
   <div class="bl-msg"><div class="bl-spin"></div><span>Loading…</span></div>
 </div>
+<script>
+// Early product-list fetch for the customer shop (text fields only, no photos). Uses the same public Firebase project/API key
+// as EMBEDDED_FIREBASE_CONFIG below; CustomerPortal._loadLite() picks the result up. If it fails the app just fetches it again later.
+window.__liteP = location.hash === '#staff' ? null : (async function(){
+  const docs = []; let token = '';
+  do{
+    const r = await fetch('https://firestore.googleapis.com/v1/projects/vinayaga-crackers-and-ev-a2f59/databases/(default)/documents/products?pageSize=300&' +
+      ['name','sku','price','unit','tax','category','order','keywords'].map(f=>'mask.fieldPaths='+f).join('&') +
+      '&key=AIzaSyB_3xYxIOQQe59CW-4zU834e4M3lbYtKlg' + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
+    if(!r.ok) return null;
+    const j = await r.json(); docs.push(...(j.documents||[])); token = j.nextPageToken || '';
+  }while(token);
+  return docs;
+})().catch(()=>null);
+</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
@@ -547,6 +562,10 @@ body.glass-staff .overlay.open{background:rgba(15,42,58,.4)}
 .ship-strip .ic{flex:none;width:1.05em;height:1.05em;color:var(--green)}
 .ship-note{margin-top:.5rem;font-size:.82rem;font-weight:600;color:var(--green)}
 .ship-note.hidden{display:none !important}
+.skel-chip{width:96px;min-height:34px;border-radius:999px;background:linear-gradient(100deg,rgba(255,255,255,.35) 30%,rgba(255,255,255,.9) 50%,rgba(255,255,255,.35) 70%);background-size:200% 100%;animation:shimmer 1.3s linear infinite;border:0}
+.sk-line{height:14px;border-radius:8px;margin:10px 0;background:linear-gradient(100deg,rgba(14,122,143,.08) 30%,rgba(14,122,143,.2) 50%,rgba(14,122,143,.08) 70%);background-size:200% 100%;animation:shimmer 1.3s linear infinite}
+.sk-card{padding:1.1rem}
+.view.is-loading .kpi .value{color:transparent !important;border-radius:8px;background:linear-gradient(100deg,rgba(14,122,143,.08) 30%,rgba(14,122,143,.2) 50%,rgba(14,122,143,.08) 70%);background-size:200% 100%;animation:shimmer 1.3s linear infinite;width:6rem;height:1.6rem}
 .save-line{margin-top:.6rem;font-size:.85rem;color:var(--green);font-weight:600}
 .save-line.hidden{display:none !important}
 /* festival-sale banner: corner ribbon + 3 order steps */
@@ -640,8 +659,8 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
         </div>
       </section></div>
       <div class="ship-strip" role="note">
-        <span><svg class="ic"><use href="#i-bag"/></svg><i><b>Free delivery</b> across Tamil Nadu on orders above ₹4,000</i></span>
-        <span><svg class="ic"><use href="#i-phone"/></svg><i><b>Cash on Delivery</b> available within Puducherry</i></span>
+        <span><svg class="ic"><use href="#i-bag"/></svg><i><b>Free delivery</b> above ₹3,000 in Puducherry &amp; above ₹4,000 in Tamil Nadu</i></span>
+        <span><svg class="ic"><use href="#i-phone"/></svg><i><b>Cash on Delivery</b> available in Puducherry</i></span>
       </div>
       <div id="portalCatBar" class="cat-bar hidden"><nav id="portalCats" class="cat-scroll" aria-label="Product categories"></nav></div>
       <section class="shop-wrap">
@@ -660,10 +679,14 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
       <div class="checkout">
         <div class="card p-5">
           <div id="portalCartItems"></div>
+          <div class="mt-4"><label class="field-label" for="portalState">Delivery state *</label>
+            <select class="input" id="portalState"><option value="">Select your state…</option><option value="Puducherry">Puducherry</option><option value="Tamil Nadu">Tamil Nadu</option></select></div>
+          <div id="portalMethodBox" class="mt-3 hidden"><label class="field-label" for="portalMethod">Delivery option</label><select class="input" id="portalMethod"></select></div>
+          <div id="portalChargeRows" class="mt-3 text-sm grid gap-1"></div>
           <div class="total-row"><span class="lbl">Total</span><span class="amt" id="portalCartTotal">₹0</span></div>
           <p id="portalSaveLine" class="save-line hidden"></p>
           <p id="portalShipLine" class="ship-note hidden"></p>
-          <p class="text-dim text-xs mt-2">Prices include GST. Free delivery across Tamil Nadu above ₹4,000 · Cash on Delivery within Puducherry.</p>
+          <p class="text-dim text-xs mt-2">Prices include GST. Free delivery: ₹3,000+ in Puducherry (below that ₹150) · ₹4,000+ in Tamil Nadu (below that ₹500). Cash on Delivery within Puducherry.</p>
         </div>
 
         <div class="space-y-5">
@@ -681,6 +704,11 @@ body.glass-shop .hero-night .hv-step{background:rgba(255,255,255,.9);color:#0f2a
             <div><label class="field-label" for="portalName">Name *</label><input class="input" id="portalName" autocomplete="name" required></div>
             <div><label class="field-label" for="portalPhone">Phone *</label><input class="input" id="portalPhone" type="tel" autocomplete="tel" inputmode="tel" required></div>
             <div><label class="field-label" for="portalAddress">Delivery / pickup address</label><textarea class="input" id="portalAddress" rows="2" autocomplete="street-address"></textarea></div>
+            <div id="portalLocBox">
+              <label class="field-label">Pin your delivery location on the map <span class="font-normal">(optional — helps us find you faster)</span></label>
+              <button type="button" id="portalLocBtn" class="btn btn-ghost w-full" onclick="CustomerPortal.openMapPicker()">📍 Pin location on map</button>
+              <p id="portalLocText" class="text-xs mt-1.5 hidden" style="color:var(--green);font-weight:600"></p>
+            </div>
             <div><label class="field-label" for="portalNotes">Notes (optional)</label><input class="input" id="portalNotes" placeholder="Any special requests"></div>
 
             <div id="portalPaymentBox" class="hidden rounded-xl p-4 space-y-3 text-center" style="background:var(--panel2);">
@@ -1103,7 +1131,10 @@ let db, auth, currentUser = null, currentProfile = null, currentView = 'dashboar
 const STAFF_HASHES = ['#staff','#dashboard','#orders','#invoices','#customers','#products','#reports','#settings'];
 const entryIntent = STAFF_HASHES.includes(location.hash) ? 'staff' : 'shop';
 let listenerUnsubs = [];
-const Cache = { customers:[], products:[], invoices:[], settings:{}, profiles:[], orders:[] };
+const Cache = { customers:[], products:[], invoices:[], settings:{}, profiles:[], orders:[], ready:{} };
+// Placeholder rows/cards shown in the staff screens until the first data from Firestore arrives.
+const skelLines = n => Array.from({length:n}, (_,i)=>'<div class="sk-line" style="width:'+(96-(i%3)*14)+'%"></div>').join('');
+const skelRows = (cols, n=6) => '<tr><td colspan="'+cols+'">' + skelLines(n) + '</td></tr>';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 // Inline SVG icon from the sprite at the top of <body>.
 // Eases a stat from its last shown value to the new one (skipped for reduced-motion / first paint of zero).
@@ -1292,17 +1323,18 @@ function showNewOrderAlert(orders){
 function startListeners(){
   listenerUnsubs.forEach(u=>u());
   listenerUnsubs = [];
+  Cache.ready = {};
   listenerUnsubs.push(db.collection('customers').onSnapshot(snap=>{
-    Cache.customers = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    Cache.customers = snap.docs.map(d=>({id:d.id, ...d.data()})); Cache.ready.customers = true;
     if(currentView==='customers') Customers.renderTable();
     if(currentView==='dashboard') Dashboard.render();
   }, err=>toast('Sync error: '+err.message)));
   listenerUnsubs.push(db.collection('products').onSnapshot(snap=>{
-    Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(productCompare);
+    Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(productCompare); Cache.ready.products = true;
     if(currentView==='products') Products.renderTable();
   }, err=>toast('Sync error: '+err.message)));
   listenerUnsubs.push(db.collection('invoices').onSnapshot(snap=>{
-    Cache.invoices = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    Cache.invoices = snap.docs.map(d=>({id:d.id, ...d.data()})); Cache.ready.invoices = true;
     if(currentView==='invoices') Invoices.renderTable();
     if(currentView==='dashboard') Dashboard.render();
     if(currentView==='customers') Customers.renderTable();
@@ -1326,6 +1358,7 @@ function startListeners(){
   listenerUnsubs.push(db.collection('orders').onSnapshot(snap=>{
     Cache.orders = snap.docs.map(d=>({id:d.id, ...d.data()}))
       .sort((a,b)=> (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+    Cache.ready.orders = true;
     const newCount = Cache.orders.filter(o=>o.status==='new').length;
     const badge = document.getElementById('ordersBadge');
     badge.textContent = newCount;
@@ -1484,11 +1517,13 @@ function buildOrderWhatsAppMessage(o){
   lines.push(`👤 *${o.customerName||'Customer'}*`);
   lines.push(`📞 ${o.customerPhone||'—'}`);
   if(o.customerAddress) lines.push(`🏠 ${o.customerAddress}`);
+  if(o.mapLink) lines.push(`📍 ${o.mapLink}`);
   lines.push('');
   lines.push('```');
   lines.push(...itemLines);
   lines.push(sep);
-  lines.push(`Total: ₹${money(total)}`);
+  if(o.deliveryCharge != null){ lines.push(`Items: ₹${money(total)}`); lines.push(o.deliveryMethod==='pickup' ? 'Store pickup (no delivery charge)' : `Delivery (${o.state||'—'}): ${o.deliveryCharge ? '₹'+money(o.deliveryCharge) : 'FREE'}`); }
+  lines.push(`Total: ₹${money(total + (o.deliveryCharge||0))}`);
   lines.push('```');
   if(o.notes){ lines.push(''); lines.push(`📝 *Note:* ${o.notes}`); }
   return lines.join('\n');
@@ -1547,6 +1582,18 @@ const categoryRank = p => { const c = categoryOf(p) || 'Other', known = Object.v
 // Position inside a category: the product's own "order" if one was set, else the number in its SKU (SPK-012 -> 12).
 const orderNum = p => { if(typeof p.order === 'number') return p.order; const m = (p.sku||'').match(/(\d+)\s*$/); return m ? parseInt(m[1],10) : Infinity; };
 const productCompare = (a,b) => categoryRank(a)-categoryRank(b) || (categoryOf(a)||'').localeCompare(categoryOf(b)||'') || (orderNum(a)===orderNum(b) ? 0 : orderNum(a)<orderNum(b) ? -1 : 1) || skuCompare(a,b);
+// Product search: case-insensitive, ignores punctuation/spacing (F/P = f p = fp). Every typed word must match the start of a word
+// (or, for 3+ letters, any part) of the name, SKU, category, HSN or the product's keywords; or the whole query squashed together matches.
+const _normSearch = s => String(s||'').toLowerCase().replace(/[^a-z0-9஀-௿]+/g,' ').trim();
+function productMatches(p, q){
+  const qn = _normSearch(q); if(!qn) return true;
+  const hay = _normSearch([p.name, p.sku, categoryOf(p), p.hsn, p.keywords].join(' '));
+  const words = hay.split(' '), joined = hay.replace(/ /g,'');
+  const termHit = t => t.length===1 ? words.includes(t) : (words.some(w=>w.startsWith(t)) || (t.length>=3 && hay.includes(t)));
+  if(qn.split(' ').every(t=> termHit(t) || (t.length>3 && t.endsWith('s') && termHit(t.slice(0,-1))))) return true;
+  const squashed = qn.replace(/ /g,'');
+  return squashed.length>=2 && joined.includes(squashed);
+}
 // SKU prefix for a category: the standard one (Sparklers -> SPK), else the one its products already use, else its first letters.
 function skuPrefixFor(cat){
   const std = Object.entries(PRODUCT_CATEGORY_NAMES).find(([,n])=>n.toLowerCase()===cat.trim().toLowerCase());
@@ -1734,6 +1781,7 @@ const Customers = {
   },
   renderTable(){
     const body = document.getElementById('customerTableBody');
+    if(!Cache.ready.customers){ body.innerHTML = skelRows(6); return; }
     const list = this.list();
     body.innerHTML = list.length ? list.map(c=>`
       <tr>
@@ -1781,6 +1829,8 @@ const Products = {
           <div><label class="text-xs text-dim">SKU <span class="font-normal" id="pSkuHint">${id?'':'(auto from category)'}</span></label><input class="input mt-1" id="pSku" value="${p.sku||''}"></div>
           <div><label class="text-xs text-dim">HSN/SAC</label><input class="input mt-1" id="pHsn" value="${p.hsn||''}" placeholder="e.g. 36041000"></div>
         </div>
+        <div><label class="text-xs text-dim">Search keywords <span class="font-normal">(other names people may type — separate with commas, e.g. flower pot, f/p, flower, pot)</span></label>
+          <input class="input mt-1" id="pKeywords" value="${(p.keywords||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" placeholder="flower pot, f/p, pot, flower" autocomplete="off"></div>
         <div><label class="text-xs text-dim">Position in the list <span class="font-normal">(order shown in the shop, Products tab and invoices)</span></label>
           <select class="input mt-1" id="pPos"></select></div>
         <div class="grid grid-cols-2 gap-2">
@@ -1865,7 +1915,7 @@ const Products = {
     document.getElementById('prodForm').addEventListener('submit', async e=>{
       e.preventDefault();
       const data = {name:pName.value.trim(), sku:pSku.value.trim(), hsn:pHsn.value.trim(), unit:pUnit.value.trim()||'pcs',
-        category:pCategory.value.trim(), price:parseFloat(pPrice.value)||0, tax:Cache.settings.defaultTax??18,
+        category:pCategory.value.trim(), keywords:pKeywords.value.trim(), price:parseFloat(pPrice.value)||0, tax:Cache.settings.defaultTax??18,
         images: pImages, imageUrl: pImages[0]||''};
       const ord = positionOrder(); if(ord !== undefined) data.order = ord;
       const saveBtn = document.getElementById('prodSaveBtn');
@@ -2038,11 +2088,10 @@ const Products = {
   },
   renderTable(){
     const body = document.getElementById('productTableBody');
-    const term = (document.getElementById('prodFilterText')?.value||'').trim().toLowerCase();
+    if(!Cache.ready.products){ body.innerHTML = skelRows(5, 8); return; }
+    const term = (document.getElementById('prodFilterText')?.value||'').trim();
     let list = this.list();
-    if(term) list = list.filter(p=>
-      p.name.toLowerCase().includes(term) || (p.sku||'').toLowerCase().includes(term) || (p.hsn||'').toLowerCase().includes(term) || categoryOf(p).toLowerCase().includes(term)
-    );
+    if(term) list = list.filter(p=>productMatches(p, term));
     body.innerHTML = list.length ? list.map(p=>`
       <tr>
         <td class="font-medium">
@@ -2230,7 +2279,7 @@ const Invoices = {
               </select>
             </div>
           </div>
-          <div><label class="text-xs text-dim">Delivery / Packing Charge (₹)</label><input class="input mt-1" id="iDeliveryCharge" type="number" step="0.01" min="0" value="${inv?(inv.deliveryCharge||0):0}"></div>
+          <div><label class="text-xs text-dim">Delivery / Packing Charge (₹)</label><input class="input mt-1" id="iDeliveryCharge" type="number" step="0.01" min="0" value="${inv?(inv.deliveryCharge||0):(opts.prefillDelivery||0)}"></div>
         </div>
 
         <div class="grid md:grid-cols-4 gap-2 mt-4">
@@ -2271,14 +2320,7 @@ const Invoices = {
 
     const renderPickerResults = (wrapper, term) => {
       const resultsEl = wrapper.querySelector('.product-picker-results');
-      const t = term.trim().toLowerCase();
-      const matches = (t
-        ? Products.list().filter(p=>
-            p.name.toLowerCase().includes(t) ||
-            (p.sku||'').toLowerCase().includes(t) ||
-            (p.hsn||'').toLowerCase().includes(t))
-        : Products.list()
-      ).slice(0,40);
+      const matches = Products.list().filter(p=>productMatches(p, term)).slice(0,40);
       resultsEl.innerHTML = matches.length ? matches.map(p=>`
         <div class="nav-item" onclick="Invoices.selectRowProduct(this.closest('.product-picker'), '${p.id}')">
           ${p.name} <span class="text-dim text-[10px]">${p.sku?('· '+p.sku+' '):''}· ₹${p.price}</span>
@@ -2497,8 +2539,7 @@ const Invoices = {
 
   openItemPicker(){
     const render = (q)=>{
-      const term = (q||'').trim().toLowerCase();
-      const list = Products.list().filter(p=> !term || p.name.toLowerCase().includes(term) || (p.sku||'').toLowerCase().includes(term) || (p.hsn||'').toLowerCase().includes(term));
+      const list = Products.list().filter(p=>productMatches(p, q));
       document.getElementById('pickerResults').innerHTML = list.length ? list.map(p=>`
         <div class="card p-2.5 flex items-center justify-between gap-2 mb-2">
           <div class="min-w-0 flex items-center gap-2">
@@ -3046,6 +3087,7 @@ const Invoices = {
 
   renderTable(){
     const body = document.getElementById('invoiceTableBody');
+    if(!Cache.ready.invoices){ body.innerHTML = skelRows(6, 8); return; }
     const customers = Customers.list();
     const filterText = (document.getElementById('invFilterText').value||'').toLowerCase();
     const filterStatus = document.getElementById('invFilterStatus').value;
@@ -3102,6 +3144,7 @@ const Orders = {
     const proceed = (customerId) => {
       Invoices.openForm(undefined, {
         prefillItems: order.items,
+        prefillDelivery: order.deliveryCharge || 0,
         prefillCustomerId: customerId,
         fromOrderId: order.id
       });
@@ -3118,6 +3161,7 @@ const Orders = {
   },
   renderList(){
     const wrap = document.getElementById('orderList');
+    if(!Cache.ready.orders){ wrap.innerHTML = [0,1,2].map(()=>'<div class="card sk-card">'+skelLines(4)+'</div>').join(''); return; }
     const filterStatus = document.getElementById('orderFilterStatus').value;
     let list = this.list();
     if(filterStatus) list = list.filter(o=>o.status===filterStatus);
@@ -3134,6 +3178,7 @@ const Orders = {
           <div class="min-w-0">
             <p class="font-semibold text-base">${o.customerName||'Customer'} <span class="text-dim text-sm font-normal">· ${o.customerPhone||'no phone'}</span></p>
             ${o.customerAddress?`<p class="text-dim text-sm mt-0.5">${o.customerAddress}</p>`:''}
+            ${o.mapLink?`<a class="text-sm font-semibold" style="color:var(--teal,#0e7a8f)" href="${o.mapLink}" target="_blank" rel="noopener">📍 Open pinned location in Maps</a>`:''}
           </div>
           <span class="flex items-center gap-1.5 flex-wrap">
             ${o.paymentClaimed?`<span class="badge badge-paid">${ico('card')} Paid (unverified)</span>`:`<span class="badge badge-pending">${ico('phone')} Enquiry</span>`}
@@ -3142,7 +3187,8 @@ const Orders = {
         </div>
         <div class="grid gap-1 mb-3">${itemsHtml}</div>
         ${o.notes?`<p class="text-dim text-sm mb-2">Note: ${o.notes}</p>`:''}
-        <p class="mb-3" style="font-family:var(--font-display);font-size:1.4rem;font-weight:600">${fmt(total)}</p>
+        ${o.deliveryCharge != null?`<p class="text-dim text-sm mb-1">${o.state||''} · Items ${fmt(total)} · ${o.deliveryMethod==='pickup'?'<b>Store pickup</b>':'Delivery '+(o.deliveryCharge?fmt(o.deliveryCharge):'FREE')}</p>`:''}
+        <p class="mb-3" style="font-family:var(--font-display);font-size:1.4rem;font-weight:600">${fmt(total + (o.deliveryCharge||0))}</p>
         <div class="flex gap-2 flex-wrap items-center">
           ${o.status==='new'?`<button class="btn-ghost btn text-xs" onclick="Orders.markStatus('${o.id}','confirmed')">${ico('check')} Mark Confirmed</button>`:''}
           ${o.customerPhone?`<a class="btn-ghost btn text-xs" href="tel:${o.customerPhone}">${ico('phone')} Call</a>`:''}
@@ -3164,8 +3210,12 @@ const Orders = {
 /* ============================================================
    CUSTOMER ORDERING PORTAL (public — no login required)
    ============================================================ */
+// Free-delivery limit and the delivery charge below it, per state.
+const DELIVERY_RULES = { 'Puducherry': {free:3000, charge:150}, 'Tamil Nadu': {free:4000, charge:500} };
 const CustomerPortal = {
   cart: [],
+  method: 'delivery',
+  state: (()=>{ try{ const v = localStorage.getItem('vc_state'); return DELIVERY_RULES[v] ? v : ''; }catch(e){ return ''; } })(),
   cat: '',
   _animate: true,   // stagger product cards in only when the list itself changes (first load, category, search) — not on cart updates
   orderType: 'enquiry',
@@ -3181,11 +3231,15 @@ const CustomerPortal = {
     if(!this._productsUnsub){
       const listEl = document.getElementById('portalProductList');
       this._fullLoaded = false;
+      if(!Cache.products.length) document.getElementById('portalCats').innerHTML = Array.from({length:5}, ()=>'<span class="cat-chip skel-chip" aria-hidden="true">&nbsp;</span>').join(''), document.getElementById('portalCatBar').classList.remove('hidden');
       listEl.innerHTML = '<div class="product-grid">' + Array.from({length:8}, ()=>'<div class="pcard skel"><div class="pimg"></div><div class="sl" style="width:80%"></div><div class="sl" style="width:45%"></div></div>').join('') + '</div>';
+      const cached = !Cache.products.length && this._loadLiteCache();
+      if(cached){ Cache.products = cached.sort(productCompare); this.renderCatalog(); }   // 0) last visit's list, instantly
       this._loadLite();   // 1) names + prices only, straight away
       this._productsUnsub = db.collection('products').onSnapshot(snap=>{   // 2) the full records with photos follow
         this._fullLoaded = true;
         Cache.products = snap.docs.map(d=>({id:d.id, ...d.data()})).sort(productCompare);
+        this._saveLiteCache();
         this.renderCatalog();
       }, err=>{ listEl.innerHTML = `<p class="empty text-ember" style="grid-column:1/-1">Couldn't load products — ${err.message}</p>`; });
     } else {
@@ -3331,7 +3385,7 @@ const CustomerPortal = {
     const upiId = Cache.settings.upiId;
     if(!upiId) return;
     const bizName = Cache.settings.bizName || 'Shop';
-    const amount = this.cartTotal();
+    const amount = this.grandTotal();
     const note = `Order ${new Date().toISOString().slice(0,10)}`;
     const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(bizName)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note)}`;
     document.getElementById('portalUpiAmount').textContent = fmt(amount);
@@ -3344,23 +3398,33 @@ const CustomerPortal = {
   // appears immediately; the full snapshot (with photos) then replaces it a moment later.
   async _loadLite(){
     try{
-      const cfg = firebase.app().options;
-      const base = 'https://firestore.googleapis.com/v1/projects/' + cfg.projectId + '/databases/(default)/documents/products';
-      const mask = ['name','sku','price','unit','tax','category','order'].map(f=>'mask.fieldPaths='+f).join('&');
+      let docs = await window.__liteP; window.__liteP = null;      // started in <head>, usually already finished
+      if(!docs){
+        const cfg = firebase.app().options;
+        const base = 'https://firestore.googleapis.com/v1/projects/' + cfg.projectId + '/databases/(default)/documents/products';
+        const mask = ['name','sku','price','unit','tax','category','order','keywords'].map(f=>'mask.fieldPaths='+f).join('&');
+        docs = []; let token = '';
+        do{
+          const res = await fetch(base + '?pageSize=300&' + mask + '&key=' + cfg.apiKey + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
+          if(!res.ok) return;
+          const j = await res.json(); docs.push(...(j.documents||[])); token = j.nextPageToken || '';
+        }while(token);
+      }
       const val = x => !x ? undefined : (x.stringValue !== undefined ? x.stringValue : x.integerValue !== undefined ? Number(x.integerValue) : x.doubleValue);
-      const out = []; let token = '';
-      do{
-        const res = await fetch(base + '?pageSize=300&' + mask + '&key=' + cfg.apiKey + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
-        if(!res.ok) return;
-        const j = await res.json();
-        (j.documents||[]).forEach(d=>{ const f = d.fields||{};
-          out.push({id:d.name.split('/').pop(), name:val(f.name)||'', sku:val(f.sku)||'', price:Number(val(f.price))||0, unit:val(f.unit)||'', tax:val(f.tax), category:val(f.category)||'', order:val(f.order)}); });
-        token = j.nextPageToken || '';
-      }while(token);
+      const out = docs.map(d=>{ const f = d.fields||{};
+        return {id:d.name.split('/').pop(), name:val(f.name)||'', sku:val(f.sku)||'', price:Number(val(f.price))||0, unit:val(f.unit)||'', tax:val(f.tax), category:val(f.category)||'', order:val(f.order), keywords:val(f.keywords)||''}; });
       if(this._fullLoaded || !out.length) return;      // the full list already arrived first
       Cache.products = out.sort(productCompare);
+      this._saveLiteCache();
       this.renderCatalog();
     }catch(e){ /* blocked or offline — the normal full load below still works */ }
+  },
+  // The last product list (text only) is kept on the device so a returning shopper sees the shop instantly while fresh data loads.
+  _saveLiteCache(){
+    try{ localStorage.setItem('vc_products_v1', JSON.stringify(Cache.products.map(p=>({id:p.id,name:p.name,sku:p.sku,price:p.price,unit:p.unit,tax:p.tax,category:p.category,order:p.order,keywords:p.keywords})))); }catch(e){}
+  },
+  _loadLiteCache(){
+    try{ const a = JSON.parse(localStorage.getItem('vc_products_v1')||'null'); return Array.isArray(a) && a.length ? a : null; }catch(e){ return null; }
   },
   categories(){
     const counts = {};
@@ -3426,10 +3490,9 @@ const CustomerPortal = {
     const title = document.getElementById('portalGridTitle');
     this.renderCategoryBar();
     if(!Cache.products.length){ wrap.innerHTML = `<p class="empty">No products available right now — please check back soon.</p>`; count.textContent = ''; return; }
-    const q = (document.getElementById('portalSearch').value||'').trim().toLowerCase();
+    const q = (document.getElementById('portalSearch').value||'').trim();
     const list = Cache.products.filter(p=>
-      (!this.cat || (categoryOf(p)||'Other')===this.cat) &&
-      (!q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q)));
+      (!this.cat || (categoryOf(p)||'Other')===this.cat) && productMatches(p, q));
     title.textContent = this.cat || 'Our crackers';
     count.textContent = list.length + (list.length===1 ? ' product' : ' products');
     if(!list.length){ wrap.innerHTML = `<p class="empty">No matches for "${q.replace(/</g,'&lt;')}"${this.cat?' in '+this.cat:''}. Try a shorter word${this.cat?' or pick All':''}.</p>`; return; }
@@ -3476,11 +3539,78 @@ const CustomerPortal = {
     if(bar){
       const onCatalog = !document.getElementById('portalCatalogView').classList.contains('hidden');
       bar.classList.toggle('hidden', count===0 || !onCatalog);
-      document.getElementById('portalBarCount').textContent = count + (count===1 ? ' item' : ' items');
+      const d = this.delivery();
+      document.getElementById('portalBarCount').textContent = count + (count===1 ? ' item' : ' items') + (d.known && d.short ? ' · add ' + fmt(d.short) + ' more for free delivery' : (d.known && count ? ' · free delivery 🎉' : ''));
       document.getElementById('portalBarTotal').textContent = fmt(this.cartTotal());
     }
   },
   cartTotal(){ return this.cart.reduce((s,c)=>s+c.qty*c.price,0); },
+  // Delivery for the chosen state: free at/above the limit, otherwise the flat charge. short = how much more unlocks free delivery.
+  // Below the limit the shopper chooses: delivery with the charge, or store pickup (no charge).
+  delivery(){
+    const r = DELIVERY_RULES[this.state], items = this.cartTotal();
+    if(!r || !items) return {known:!!r, charge:0, short:0, rule:r, below:false, pickup:false};
+    const below = items < r.free, pickup = this.method === 'pickup';
+    return {known:true, charge: below && !pickup ? r.charge : 0, short: below ? r.free - items : 0, rule:r, below, pickup};
+  },
+  loc: null,
+  // Map pin (OpenStreetMap + Leaflet, no API key): shopper taps the map, drags the pin, or uses their current location.
+  _loadLeaflet(){
+    if(window.L) return Promise.resolve();
+    if(this._leafletP) return this._leafletP;
+    return this._leafletP = new Promise((ok, fail)=>{
+      const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(css);
+      const js = document.createElement('script'); js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+      js.onload = ok; js.onerror = ()=>{ this._leafletP = null; fail(new Error('map failed to load')); }; document.head.appendChild(js);
+    });
+  },
+  async openMapPicker(){
+    openModal(`<h3 class="font-semibold text-lg mb-1">Pin your delivery location</h3>
+      <p class="text-dim text-xs mb-2">Tap the map or drag the pin to your door. Zoom in for accuracy.</p>
+      <div id="mapPick" style="height:340px;border-radius:12px;overflow:hidden;background:#dfeaea;display:grid;place-items:center" class="text-dim text-sm">Loading map…</div>
+      <div class="flex gap-2 mt-3 flex-wrap">
+        <button type="button" class="btn btn-ghost" id="mapLocate">📍 Use my current location</button>
+        <button type="button" class="btn btn-gold flex-1" id="mapConfirm">Confirm location</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      </div>
+      <p id="mapMsg" class="text-xs mt-2 text-dim"></p>`);
+    const msg = t => { const e = document.getElementById('mapMsg'); if(e) e.textContent = t; };
+    try{ await this._loadLeaflet(); }catch(e){ document.getElementById('mapPick').textContent = "Couldn't load the map — please check your internet connection."; return; }
+    const box = document.getElementById('mapPick'); if(!box) return;
+    box.innerHTML = ''; box.style.display = 'block';
+    const start = this.loc ? [this.loc.lat, this.loc.lng] : (this.state === 'Tamil Nadu' ? [11.1271, 78.6569] : [11.9416, 79.8083]);
+    const map = L.map(box).setView(start, this.loc ? 17 : (this.state === 'Tamil Nadu' ? 7 : 12));
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+    let marker = this.loc ? L.marker(start, {draggable:true}).addTo(map) : null;
+    const put = ll => { if(marker) marker.setLatLng(ll); else marker = L.marker(ll, {draggable:true}).addTo(map); };
+    map.on('click', e=>put(e.latlng));
+    setTimeout(()=>map.invalidateSize(), 150);
+    document.getElementById('mapLocate').onclick = () => {
+      if(!navigator.geolocation){ msg('Location is not available on this device — tap the map instead.'); return; }
+      msg('Finding you…');
+      navigator.geolocation.getCurrentPosition(p=>{ const ll = [p.coords.latitude, p.coords.longitude]; put(ll); map.setView(ll, 17); msg('Drag the pin if it is slightly off, then confirm.'); },
+        ()=>msg('Could not get your location — allow location access, or tap the map instead.'), {enableHighAccuracy:true, timeout:15000});
+    };
+    document.getElementById('mapConfirm').onclick = () => {
+      if(!marker){ msg('Tap the map to drop a pin first.'); return; }
+      const ll = marker.getLatLng(); this.loc = {lat:+ll.lat.toFixed(6), lng:+ll.lng.toFixed(6)};
+      closeModal(); this.renderLoc();
+    };
+  },
+  mapLink(){ return this.loc ? 'https://www.google.com/maps?q=' + this.loc.lat + ',' + this.loc.lng : ''; },
+  renderLoc(){
+    const t = document.getElementById('portalLocText'), b = document.getElementById('portalLocBtn');
+    t.classList.toggle('hidden', !this.loc);
+    if(this.loc) t.innerHTML = '✓ Location pinned · <a href="' + this.mapLink() + '" target="_blank" rel="noopener" style="text-decoration:underline">view on map</a>';
+    b.textContent = this.loc ? '📍 Change pin' : '📍 Pin location on map';
+  },
+  setMethod(v){ this.method = v === 'pickup' ? 'pickup' : 'delivery'; this.renderCart(); this.updateCartBadge(); },
+  grandTotal(){ return this.cartTotal() + this.delivery().charge; },
+  setState(v){
+    this.state = DELIVERY_RULES[v] ? v : '';
+    try{ localStorage.setItem('vc_state', this.state); }catch(e){}
+    this.renderCart(); this.updateCartBadge();
+  },
 
   renderCart(){
     const wrap = document.getElementById('portalCartItems');
@@ -3500,13 +3630,24 @@ const CustomerPortal = {
         <p class="lt">${fmt(c.qty*c.price)}</p>
       </div>`;
     }).join('') : `<p class="empty">Your cart is empty. Go back and add something.</p>`;
-    document.getElementById('portalCartTotal').textContent = fmt(this.cartTotal());
-    const save = document.getElementById('portalSaveLine'), t = this.cartTotal();
+    const d = this.delivery(), t = this.cartTotal();
+    document.getElementById('portalCartTotal').textContent = fmt(this.grandTotal());
+    const stSel = document.getElementById('portalState'); if(stSel.value !== this.state) stSel.value = this.state;
+    const mBox = document.getElementById('portalMethodBox'), mSel = document.getElementById('portalMethod');
+    mBox.classList.toggle('hidden', !(t && d.known));
+    document.getElementById('portalLocBox').classList.toggle('hidden', d.pickup);
+    if(t && d.known){
+      mSel.innerHTML = `<option value="delivery">Home delivery — ${d.below ? fmt(d.rule.charge) + ' delivery charge' : 'free'}</option><option value="pickup">Store pickup — no delivery charge</option>`;
+      mSel.value = d.pickup ? 'pickup' : 'delivery';
+    }
+    document.getElementById('portalChargeRows').innerHTML = t ? `<div class="flex justify-between"><span class="text-dim">Items total</span><span>${fmt(t)}</span></div>
+      <div class="flex justify-between"><span class="text-dim">${d.pickup ? 'Store pickup' : 'Delivery'}${d.known && !d.pickup ? ' ('+this.state+')' : ''}</span><span>${!d.known ? 'Select state' : d.charge ? '+ '+fmt(d.charge) : '<b style="color:var(--green)">FREE</b>'}</span></div>` : '';
+    const save = document.getElementById('portalSaveLine');
     save.classList.toggle('hidden', !t);
     if(t) save.innerHTML = `You save <b>${fmt(mrpOf(t) - t)}</b> on the M.R.P of ${fmt(mrpOf(t))}`;
     const ship = document.getElementById('portalShipLine');
     ship.classList.toggle('hidden', !t);
-    if(t) ship.innerHTML = t > 4000 ? '🚚 You get <b>free delivery</b> across Tamil Nadu!' : `Add <b>${fmt(4001 - t)}</b> more for free delivery across Tamil Nadu`;
+    if(t) ship.innerHTML = !d.known ? 'Choose your state to see the delivery charge. Free delivery: ₹3,000+ in Puducherry, ₹4,000+ in Tamil Nadu.' : d.short ? `🚚 Add <b>${fmt(d.short)}</b> more to unlock <b>free delivery</b>${d.pickup ? ' to your door' : ''}.` : '🚚 You\'ve unlocked <b>free delivery</b>!';
     if(this.orderType==='pay') this.renderUpiPayment();
   },
 
@@ -3516,7 +3657,7 @@ const CustomerPortal = {
     const s = Cache.settings || {};
     if(!s.alertUrl) return Promise.resolve(null);
     const payload = JSON.stringify({key:s.alertKey||'', orderId:id, name:o.customerName, phone:o.customerPhone, address:o.customerAddress,
-      notes:o.notes, orderType:o.orderType, paymentClaimed:o.paymentClaimed,
+      notes:o.notes, orderType:o.orderType, paymentClaimed:o.paymentClaimed, state:o.state, deliveryMethod:o.deliveryMethod, mapLink:o.mapLink||'', deliveryCharge:o.deliveryCharge, total:o.total,
       items:o.items.map(i=>({name:i.name, qty:i.qty, price:i.price, unit:i.unit||''})), ...extra});
     return fetch(s.alertUrl, {method:'POST', mode:'no-cors', keepalive:true, headers:{'Content-Type':'text/plain;charset=utf-8'}, body:payload}).catch(()=>null);
   },
@@ -3539,6 +3680,7 @@ const CustomerPortal = {
     const notes = document.getElementById('portalNotes').value.trim();
     if(!this.cart.length){ errEl.textContent = 'Your cart is empty.'; errEl.classList.remove('hidden'); return; }
     if(!name || !phone){ errEl.textContent = 'Please enter your name and phone number.'; errEl.classList.remove('hidden'); return; }
+    if(!this.state){ errEl.textContent = 'Please select your delivery state (Puducherry or Tamil Nadu) in the cart.'; errEl.classList.remove('hidden'); return; }
     const orderType = this.orderType || 'enquiry';
     if(orderType==='pay' && !document.getElementById('portalPaidConfirm').checked){
       errEl.textContent = "Please confirm you've completed the payment before submitting.";
@@ -3550,12 +3692,13 @@ const CustomerPortal = {
       const order = {
         customerName: name, customerPhone: phone, customerAddress: address, notes,
         items: this.cart.map(c=>({productId:c.productId, name:c.name, price:c.price, tax:c.tax, unit:c.unit, qty:c.qty})),
+        state: this.state, deliveryMethod: this.delivery().pickup ? 'pickup' : 'delivery', ...(this.loc && !this.delivery().pickup ? {location:this.loc, mapLink:this.mapLink()} : {}), itemsTotal: this.cartTotal(), deliveryCharge: this.delivery().charge, total: this.grandTotal(),
         status: 'new', orderType, paymentClaimed: orderType==='pay'
       };
       const ref = await db.collection('orders').add({...order, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
       this._notifyShop(ref.id, order);      // Telegram / email / WhatsApp alert to the shop (fire-and-forget)
       this._setWhatsApp(order);             // customer's optional "send on WhatsApp" button
-      this.cart = [];
+      this.cart = []; this.loc = null; this.renderLoc();
       this.updateCartBadge();
       ['portalName','portalPhone','portalAddress','portalNotes'].forEach(id=>document.getElementById(id).value='');
       document.getElementById('portalPaidConfirm').checked = false;
@@ -3572,6 +3715,8 @@ const CustomerPortal = {
     }
   }
 };
+document.getElementById('portalMethod').addEventListener('change', e=>CustomerPortal.setMethod(e.target.value));
+document.getElementById('portalState').addEventListener('change', e=>CustomerPortal.setState(e.target.value));
 document.getElementById('portalSearch').addEventListener('input', ()=>{ CustomerPortal._animate = true; CustomerPortal.renderCatalog(); });
 document.getElementById('portalCartBtn').addEventListener('click', ()=>CustomerPortal.showCart());
 document.getElementById('portalBarBtn').addEventListener('click', ()=>CustomerPortal.showCart());
@@ -3735,6 +3880,9 @@ document.getElementById('bankForm').addEventListener('submit', async e=>{
 let salesChartInstance = null;
 const Dashboard = {
   render(){
+    const loading = !(Cache.ready.invoices && Cache.ready.customers);
+    document.getElementById('view-dashboard').classList.toggle('is-loading', loading);
+    if(loading) return;
     const invoices = Invoices.list().filter(i=>i.status!=='cancelled');
     const totalSales = invoices.reduce((s,i)=>s+i.total,0);
     const outstanding = invoices.reduce((s,i)=>s+(i.total-(i.paidAmount||0)),0);
@@ -3753,6 +3901,7 @@ const Dashboard = {
     const totals = days.map(d=> invoices.filter(i=>i.date===d).reduce((s,i)=>s+i.total,0));
 
     const ctx = document.getElementById('salesChart');
+    if(typeof Chart === 'undefined' && document.readyState !== 'complete'){ window.addEventListener('load', ()=>Dashboard.render(), {once:true}); return; }
     if(typeof Chart === 'undefined'){
       ctx.replaceWith(Object.assign(document.createElement('p'), {className:'text-dim text-sm', textContent:'Chart library failed to load — everything else on this page still works.'}));
     } else {
@@ -3947,7 +4096,7 @@ searchInput.addEventListener('input', ()=>{
   const q = searchInput.value.trim().toLowerCase();
   if(!q){ searchResults.classList.add('hidden'); return; }
   const custs = Customers.list().filter(c=>c.name.toLowerCase().includes(q)).slice(0,4);
-  const prods = Products.list().filter(p=>p.name.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q)).slice(0,4);
+  const prods = Products.list().filter(p=>productMatches(p, q)).slice(0,4);
   const invs = Invoices.list().filter(i=>i.invoiceNo.toLowerCase().includes(q)).slice(0,4);
   let html = '';
   if(custs.length) html += `<p class="text-dim text-[11px] px-2 pt-1">Customers</p>` + custs.map(c=>`<div class="nav-item" onclick="Customers.openForm('${c.id}'); searchResults.classList.add('hidden'); searchInput.value='';">${c.name}</div>`).join('');
